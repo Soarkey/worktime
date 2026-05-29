@@ -2,7 +2,6 @@ package menubar
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -10,13 +9,11 @@ import (
 
 	"github.com/energye/systray"
 	"github.com/Soarkey/worktime/internal/attendance"
+	"github.com/Soarkey/worktime/internal/brewservice"
 	"github.com/Soarkey/worktime/internal/config"
-	"github.com/Soarkey/worktime/internal/launchagent"
 )
 
 type MenuBar struct {
-	onQuit func()
-
 	mStatus *systray.MenuItem
 	// today submenu
 	mToday     *systray.MenuItem
@@ -36,12 +33,12 @@ type MenuBar struct {
 	mQuit      *systray.MenuItem
 }
 
-func New(onQuit func()) *MenuBar {
-	return &MenuBar{onQuit: onQuit}
+func New() *MenuBar {
+	return &MenuBar{}
 }
 
 func (m *MenuBar) Run() {
-	systray.Run(m.onReady, m.onExit)
+	systray.Run(m.onReady, nil)
 }
 
 func (m *MenuBar) onReady() {
@@ -86,7 +83,7 @@ func (m *MenuBar) onReady() {
 	m.mConfig = systray.AddMenuItem(fmt.Sprintf("设置 (上班 %02d:%02d / 下班 %02d:%02d)", wh.StartHour, wh.StartMin, wh.EndHour, wh.EndMin), "设置上下班时间")
 	m.mConfig.Click(func() { go m.showConfigDialog() })
 
-	if launchagent.IsInstalled() {
+	if brewservice.IsRunning() {
 		m.mAutoStart = systray.AddMenuItem("开机启动: 已开启", "点击关闭开机启动")
 	} else {
 		m.mAutoStart = systray.AddMenuItem("开机启动: 已关闭", "点击开启开机启动")
@@ -97,16 +94,9 @@ func (m *MenuBar) onReady() {
 
 	m.mQuit = systray.AddMenuItem("退出", "退出 worktime")
 	m.mQuit.Click(func() {
-		launchagent.Unload()
+		brewservice.Stop()
 		systray.Quit()
-		os.Exit(0)
 	})
-}
-
-func (m *MenuBar) onExit() {
-	if m.onQuit != nil {
-		m.onQuit()
-	}
 }
 
 func (m *MenuBar) Update(status *attendance.Status) {
@@ -223,11 +213,11 @@ func (m *MenuBar) showConfigDialog() {
 }
 
 func (m *MenuBar) toggleAutoStart() {
-	if launchagent.IsInstalled() {
-		launchagent.Uninstall(false)
+	if brewservice.IsRunning() {
+		brewservice.Stop()
 		m.mAutoStart.SetTitle("开机启动: 已关闭")
 	} else {
-		launchagent.SaveOnly()
+		brewservice.Start()
 		m.mAutoStart.SetTitle("开机启动: 已开启")
 	}
 }

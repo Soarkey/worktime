@@ -7,17 +7,13 @@ import (
 	"sort"
 
 	"github.com/Soarkey/worktime/internal/attendance"
+	"github.com/Soarkey/worktime/internal/brewservice"
 	"github.com/Soarkey/worktime/internal/config"
 	"github.com/Soarkey/worktime/internal/daemon"
-	"github.com/Soarkey/worktime/internal/launchagent"
 	"github.com/spf13/cobra"
 )
 
 func main() {
-	if logDir != "" {
-		launchagent.LogDir = logDir
-	}
-
 	root := &cobra.Command{
 		Use:   "worktime",
 		Short: "macOS 上下班时间监测菜单栏工具",
@@ -29,11 +25,6 @@ func main() {
 		os.Exit(1)
 	}
 }
-
-var (
-	version = "dev"
-	logDir  string // set via ldflags: -X main.logDir=/opt/homebrew/var/log/worktime
-)
 
 func daemonCmd() *cobra.Command {
 	return &cobra.Command{
@@ -174,12 +165,9 @@ func exportCmd() *cobra.Command {
 func startCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "start",
-		Short: "安装并启动 LaunchAgent（开机自启）",
+		Short: "启动后台服务（开机自启）",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if launchagent.LogDir != "" {
-				os.MkdirAll(launchagent.LogDir, 0755)
-			}
-			return launchagent.Install()
+			return brewservice.Start()
 		},
 	}
 }
@@ -187,9 +175,9 @@ func startCmd() *cobra.Command {
 func stopCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop",
-		Short: "停止并卸载 LaunchAgent",
+		Short: "停止后台服务",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return launchagent.Uninstall(false)
+			return brewservice.Stop()
 		},
 	}
 }
@@ -197,24 +185,21 @@ func stopCmd() *cobra.Command {
 func installCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "install",
-		Short: "安装 LaunchAgent（开机自启）",
+		Short: "安装后台服务（开机自启）",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return launchagent.Install()
+			return brewservice.Start()
 		},
 	}
 }
 
 func uninstallCmd() *cobra.Command {
-	var purge bool
-	cmd := &cobra.Command{
+	return &cobra.Command{
 		Use:   "uninstall",
-		Short: "卸载 LaunchAgent",
+		Short: "停止并移除后台服务",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return launchagent.Uninstall(purge)
+			return brewservice.Stop()
 		},
 	}
-	cmd.Flags().BoolVar(&purge, "purge", false, "同时清理日志")
-	return cmd
 }
 
 func configCmd() *cobra.Command {
