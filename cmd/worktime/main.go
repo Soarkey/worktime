@@ -9,7 +9,6 @@ import (
 	"github.com/Soarkey/worktime/internal/attendance"
 	"github.com/Soarkey/worktime/internal/brewservice"
 	"github.com/Soarkey/worktime/internal/config"
-	"github.com/Soarkey/worktime/internal/daemon"
 	"github.com/spf13/cobra"
 )
 
@@ -19,49 +18,10 @@ func main() {
 		Short: "macOS 上下班时间监测菜单栏工具",
 	}
 
-	root.AddCommand(daemonCmd(), statusCmd(), todayCmd(), weekCmd(), exportCmd(), startCmd(), stopCmd(), installCmd(), uninstallCmd(), configCmd())
+	root.AddCommand(todayCmd(), weekCmd(), exportCmd(), startCmd(), stopCmd(), configCmd())
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
-	}
-}
-
-func daemonCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "daemon",
-		Short: "启动后台守护进程（菜单栏 + 通知）",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return daemon.Run()
-		},
-	}
-}
-
-func statusCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "status",
-		Short: "查看当前考勤状态",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			status, err := attendance.GetToday()
-			if err != nil {
-				return err
-			}
-			if status == nil {
-				fmt.Println("未检测到今日上班时间")
-				return nil
-			}
-
-			fmt.Printf("日期: %s\n", status.WorkDate)
-			fmt.Printf("上班: %s\n", status.StartTime)
-			fmt.Printf("预计下班: %s\n", status.ExpectedLeave)
-			if status.LateMinutes > 0 {
-				fmt.Printf("迟到: %d 分钟\n", status.LateMinutes)
-			}
-			if status.ActualLeave != "" {
-				fmt.Printf("实际下班: %s\n", status.ActualLeave)
-			}
-			fmt.Printf("状态: %s\n", attendance.MenuBarTitle(*status))
-			return nil
-		},
 	}
 }
 
@@ -165,7 +125,7 @@ func exportCmd() *cobra.Command {
 func startCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "start",
-		Short: "启动后台服务（开机自启）",
+		Short: "启动",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return brewservice.Start()
 		},
@@ -175,27 +135,7 @@ func startCmd() *cobra.Command {
 func stopCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop",
-		Short: "停止后台服务",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return brewservice.Stop()
-		},
-	}
-}
-
-func installCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "install",
-		Short: "安装后台服务（开机自启）",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return brewservice.Start()
-		},
-	}
-}
-
-func uninstallCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "uninstall",
-		Short: "停止并移除后台服务",
+		Short: "停止",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return brewservice.Stop()
 		},

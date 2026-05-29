@@ -11,6 +11,7 @@ import (
 	"github.com/Soarkey/worktime/internal/attendance"
 	"github.com/Soarkey/worktime/internal/brewservice"
 	"github.com/Soarkey/worktime/internal/config"
+	"github.com/Soarkey/worktime/internal/notify"
 )
 
 type MenuBar struct {
@@ -27,10 +28,11 @@ type MenuBar struct {
 	weekItems []*systray.MenuItem
 	weekSumm  *systray.MenuItem
 	// export & quit
-	mExport    *systray.MenuItem
-	mConfig    *systray.MenuItem
-	mAutoStart *systray.MenuItem
-	mQuit      *systray.MenuItem
+	mExport     *systray.MenuItem
+	mConfig     *systray.MenuItem
+	mTestNotify *systray.MenuItem
+	mAutoStart  *systray.MenuItem
+	mQuit       *systray.MenuItem
 }
 
 func New() *MenuBar {
@@ -82,6 +84,9 @@ func (m *MenuBar) onReady() {
 	wh := config.Load()
 	m.mConfig = systray.AddMenuItem(fmt.Sprintf("设置 (上班 %02d:%02d / 下班 %02d:%02d)", wh.StartHour, wh.StartMin, wh.EndHour, wh.EndMin), "设置上下班时间")
 	m.mConfig.Click(func() { go m.showConfigDialog() })
+
+	m.mTestNotify = systray.AddMenuItem("提醒测试", "发送测试通知")
+	m.mTestNotify.Click(func() { go notify.Test() })
 
 	if brewservice.IsRunning() {
 		m.mAutoStart = systray.AddMenuItem("开机启动: 已开启", "点击关闭开机启动")

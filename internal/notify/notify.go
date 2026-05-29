@@ -37,3 +37,7 @@ func send(title, message string) error {
 	script := fmt.Sprintf(`display notification %q with title %q`, message, title)
 	return exec.Command("osascript", "-e", script).Run()
 }
+
+func Test() error {
+	return send("worktime", "这是一条测试通知，提醒功能正常工作！")
+}
