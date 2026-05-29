@@ -23,7 +23,7 @@ func main() {
 		Short: "macOS 上下班时间监测菜单栏工具",
 	}
 
-	root.AddCommand(daemonCmd(), statusCmd(), todayCmd(), weekCmd(), exportCmd(), installCmd(), uninstallCmd(), configCmd())
+	root.AddCommand(daemonCmd(), statusCmd(), todayCmd(), weekCmd(), exportCmd(), startCmd(), stopCmd(), installCmd(), uninstallCmd(), configCmd())
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
@@ -169,6 +169,29 @@ func exportCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVarP(&output, "output", "o", "worktime.csv", "输出文件路径")
 	return cmd
+}
+
+func startCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "start",
+		Short: "安装并启动 LaunchAgent（开机自启）",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if launchagent.LogDir != "" {
+				os.MkdirAll(launchagent.LogDir, 0755)
+			}
+			return launchagent.Install()
+		},
+	}
+}
+
+func stopCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "stop",
+		Short: "停止并卸载 LaunchAgent",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return launchagent.Uninstall(false)
+		},
+	}
 }
 
 func installCmd() *cobra.Command {
