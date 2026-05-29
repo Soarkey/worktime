@@ -2,18 +2,17 @@ package daemon
 
 import (
 	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/Soarkey/worktime/internal/attendance"
 	"github.com/Soarkey/worktime/internal/config"
+	"github.com/Soarkey/worktime/internal/launchagent"
 	"github.com/Soarkey/worktime/internal/menubar"
 	"github.com/Soarkey/worktime/internal/notify"
 )
 
 func ensureLogDir() {
-	home, _ := os.UserHomeDir()
-	os.MkdirAll(filepath.Join(home, "Library", "Logs", "worktime"), 0755)
+	os.MkdirAll(launchagent.LogDir, 0755)
 }
 
 func Run() error {

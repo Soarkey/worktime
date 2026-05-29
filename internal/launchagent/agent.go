@@ -10,6 +10,10 @@ import (
 
 const plistLabel = "com.soarkey.worktime"
 
+// LogDir is the log directory for stdout/stderr when running as daemon.
+// Set via ldflags: -X main.logDir=/opt/homebrew/var/log/worktime
+var LogDir string
+
 var plistTmpl = template.Must(template.New("plist").Parse(`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -38,18 +42,12 @@ func plistPath() string {
 	return filepath.Join(home, "Library", "LaunchAgents", plistLabel+".plist")
 }
 
-func logDir() string {
-	home, _ := os.UserHomeDir()
-	return filepath.Join(home, "Library", "Logs", "worktime")
-}
-
 func Install() error {
 	binary, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("get executable path: %w", err)
 	}
 
-	ld := logDir()
 	path := plistPath()
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return fmt.Errorf("create LaunchAgents dir: %w", err)
@@ -65,7 +63,7 @@ func Install() error {
 		Label  string
 		Binary string
 		LogDir string
-	}{plistLabel, binary, ld}
+	}{plistLabel, binary, LogDir}
 
 	if err := plistTmpl.Execute(f, data); err != nil {
 		return fmt.Errorf("write plist: %w", err)
@@ -98,9 +96,8 @@ func Uninstall(purge bool) error {
 	}
 
 	if purge {
-		ld := logDir()
-		if err := os.RemoveAll(ld); err == nil {
-			fmt.Printf("已清理日志: %s\n", ld)
+		if err := os.RemoveAll(LogDir); err == nil {
+			fmt.Printf("已清理日志: %s\n", LogDir)
 		}
 	}
 

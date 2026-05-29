@@ -14,6 +14,10 @@ import (
 )
 
 func main() {
+	if logDir != "" {
+		launchagent.LogDir = logDir
+	}
+
 	root := &cobra.Command{
 		Use:   "worktime",
 		Short: "macOS 上下班时间监测菜单栏工具",
@@ -25,6 +29,11 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+var (
+	version = "dev"
+	logDir  string // set via ldflags: -X main.logDir=/opt/homebrew/var/log/worktime
+)
 
 func daemonCmd() *cobra.Command {
 	return &cobra.Command{

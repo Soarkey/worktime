@@ -2,6 +2,7 @@ package menubar
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -48,7 +49,7 @@ func (m *MenuBar) onReady() {
 	systray.SetTooltip("worktime")
 
 	systray.SetOnClick(func(menu systray.IMenu) { menu.ShowMenu() })
-	systray.SetOnRClick(func(menu systray.IMenu) { menu.ShowMenu() })
+	systray.SetOnRClick(func(menu systray.IMenu) { go m.toggleAutoStart() })
 
 	m.mStatus = systray.AddMenuItem("加载中...", "当前状态")
 	m.mStatus.Disable()
@@ -95,7 +96,10 @@ func (m *MenuBar) onReady() {
 	systray.AddSeparator()
 
 	m.mQuit = systray.AddMenuItem("退出", "退出 worktime")
-	m.mQuit.Click(func() { systray.Quit() })
+	m.mQuit.Click(func() {
+		systray.Quit()
+		os.Exit(0)
+	})
 }
 
 func (m *MenuBar) onExit() {
