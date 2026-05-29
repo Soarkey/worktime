@@ -67,14 +67,14 @@ func acquireSingleton() error {
 	return writePid()
 }
 
-func Run() error {
+func Run(version string) error {
 	if err := acquireSingleton(); err != nil {
 		return err
 	}
 	defer removePid()
 
 	notifier := notify.New()
-	mb := menubar.New()
+	mb := menubar.New(version)
 
 	go pollLoop(notifier, mb)
 

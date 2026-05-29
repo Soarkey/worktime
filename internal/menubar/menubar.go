@@ -15,6 +15,8 @@ import (
 )
 
 type MenuBar struct {
+	version string
+
 	mStatus *systray.MenuItem
 	// today submenu
 	mToday     *systray.MenuItem
@@ -35,8 +37,8 @@ type MenuBar struct {
 	mQuit       *systray.MenuItem
 }
 
-func New() *MenuBar {
-	return &MenuBar{}
+func New(version string) *MenuBar {
+	return &MenuBar{version: version}
 }
 
 func (m *MenuBar) Run() {
@@ -109,6 +111,9 @@ func (m *MenuBar) onReady() {
 		brewservice.Stop()
 		systray.Quit()
 	})
+
+	mVersion := systray.AddMenuItem(m.version, "")
+	mVersion.Disable()
 }
 
 func (m *MenuBar) Update(status *attendance.Status) {

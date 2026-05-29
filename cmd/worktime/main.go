@@ -17,6 +17,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var version = "dev"
+
 func main() {
 	root := &cobra.Command{
 		Use:   "worktime",
@@ -152,7 +154,7 @@ func daemonCmd() *cobra.Command {
 		Use:   "daemon",
 		Short: "后台守护进程（由 start 或 launchd 调用）",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return daemon.Run()
+			return daemon.Run(version)
 		},
 	}
 }
