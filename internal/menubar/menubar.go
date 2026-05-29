@@ -62,7 +62,7 @@ func (m *MenuBar) onReady() {
 	m.todayStart.Disable()
 	m.todayEnd = m.mToday.AddSubMenuItem("预计下班: --", "")
 	m.todayEnd.Disable()
-	m.todayLate = m.mToday.AddSubMenuItem("迟到: --", "")
+	m.todayLate = m.mToday.AddSubMenuItem("延迟: --", "")
 	m.todayLate.Disable()
 	m.todayLeave = m.mToday.AddSubMenuItem("实际下班: --", "")
 	m.todayLeave.Disable()
@@ -122,14 +122,14 @@ func (m *MenuBar) Update(status *attendance.Status) {
 
 	detail := fmt.Sprintf("上班: %s | 预计下班: %s", status.StartTime, status.ExpectedLeave)
 	if status.LateMinutes > 0 {
-		detail += fmt.Sprintf(" | 迟到 %d 分钟", status.LateMinutes)
+		detail += fmt.Sprintf(" | 延迟 %d 分钟", status.LateMinutes)
 	}
 	m.mStatus.SetTitle(detail)
 
 	m.todayDate.SetTitle(fmt.Sprintf("日期: %s", status.WorkDate))
 	m.todayStart.SetTitle(fmt.Sprintf("上班: %s", status.StartTime))
 	m.todayEnd.SetTitle(fmt.Sprintf("预计下班: %s", status.ExpectedLeave))
-	m.todayLate.SetTitle(fmt.Sprintf("迟到: %d 分钟", status.LateMinutes))
+	m.todayLate.SetTitle(fmt.Sprintf("延迟: %d 分钟", status.LateMinutes))
 	leave := status.ActualLeave
 	if leave == "" {
 		leave = "--"
@@ -186,7 +186,7 @@ func (m *MenuBar) refreshWeek() {
 		}
 	}
 
-	m.weekSumm.SetTitle(fmt.Sprintf("本周共 %d 天，迟到 %d 次", dayCount, lateCount))
+	m.weekSumm.SetTitle(fmt.Sprintf("本周共 %d 天，延迟 %d 次", dayCount, lateCount))
 }
 
 func (m *MenuBar) showConfigDialog() {

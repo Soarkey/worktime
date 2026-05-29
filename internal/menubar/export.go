@@ -34,7 +34,7 @@ func exportCSV() {
 
 	f.WriteString("\xEF\xBB\xBF")
 	w := csv.NewWriter(f)
-	w.Write([]string{"日期", "上班时间", "预计下班", "实际下班", "迟到(分钟)"})
+	w.Write([]string{"日期", "上班时间", "预计下班", "实际下班", "延迟(分钟)"})
 	for _, r := range records {
 		w.Write([]string{r.WorkDate, r.StartTime, r.ExpectedLeave, r.ActualLeave, fmt.Sprintf("%d", r.LateMinutes)})
 	}

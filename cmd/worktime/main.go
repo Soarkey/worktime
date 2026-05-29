@@ -48,7 +48,7 @@ func todayCmd() *cobra.Command {
 			fmt.Printf("上班: %s\n", status.StartTime)
 			fmt.Printf("预计下班: %s\n", status.ExpectedLeave)
 			if status.LateMinutes > 0 {
-				fmt.Printf("迟到: %d 分钟\n", status.LateMinutes)
+				fmt.Printf("延迟: %d 分钟\n", status.LateMinutes)
 			}
 			if status.ActualLeave != "" {
 				fmt.Printf("实际下班: %s\n", status.ActualLeave)
@@ -72,7 +72,7 @@ func weekCmd() *cobra.Command {
 				return nil
 			}
 
-			fmt.Printf("%-12s %-6s %-6s %-6s %s\n", "日期", "上班", "预计", "实际", "迟到")
+			fmt.Printf("%-12s %-6s %-6s %-6s %s\n", "日期", "上班", "预计", "实际", "延迟")
 			fmt.Println("-----------------------------------------------")
 			for _, r := range records {
 				late := ""
@@ -113,7 +113,7 @@ func exportCmd() *cobra.Command {
 			defer f.Close()
 
 			w := csv.NewWriter(f)
-			w.Write([]string{"日期", "上班时间", "预计下班", "实际下班", "迟到(分钟)"})
+			w.Write([]string{"日期", "上班时间", "预计下班", "实际下班", "延迟(分钟)"})
 			for _, r := range records {
 				w.Write([]string{r.WorkDate, r.StartTime, r.ExpectedLeave, r.ActualLeave, fmt.Sprintf("%d", r.LateMinutes)})
 			}
