@@ -38,20 +38,24 @@ jobs:
           files: build/worktime_*.tar.gz
           generate_release_notes: true
 
-      - name: Update Homebrew Tap
+      - name: Update homebrew formula
         env:
-          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
           ASSET_URL="https://github.com/Soarkey/worktime/releases/download/${TAG}/worktime_${VERSION}_darwin_arm64.tar.gz"
           SHA=$(curl -sL "$ASSET_URL" | shasum -a 256 | cut -d' ' -f1)
-          gh repo clone Soarkey/homebrew-tap /tmp/tap
-          cd /tmp/tap
-          sed -i "s|url \".*\"|url \"${ASSET_URL}\"|" Formula/worktime.rb
-          sed -i "s|sha256 \".*\"|sha256 \"${SHA}\"|" Formula/worktime.rb
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add Formula/worktime.rb
+
+          gh repo clone Soarkey/worktime /tmp/repo
+          cd /tmp/repo
+          git checkout main
+
+          sed -i "s|url \".*\"|url \"${ASSET_URL}\"|" homebrew/Formula/worktime.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${SHA}\"|" homebrew/Formula/worktime.rb
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add homebrew/Formula/worktime.rb
           git commit -m "worktime ${TAG}"
           git push
