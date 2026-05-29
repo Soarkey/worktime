@@ -16,7 +16,7 @@ import (
 func main() {
 	root := &cobra.Command{
 		Use:   "worktime",
-		Short: "macOS 自动考勤菜单栏工具",
+		Short: "macOS 上下班时间监测菜单栏工具",
 	}
 
 	root.AddCommand(daemonCmd(), statusCmd(), todayCmd(), weekCmd(), exportCmd(), installCmd(), uninstallCmd(), configCmd())

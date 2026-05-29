@@ -1,14 +1,17 @@
 class Worktime < Formula
-  desc "macOS 自动考勤菜单栏工具，通过 pmset 日志识别上下班时间"
+  desc "macOS 上下班时间监测菜单栏工具，通过 pmset 日志识别上下班时间"
   homepage "https://github.com/Soarkey/worktime"
   url "https://github.com/Soarkey/worktime/archive/refs/tags/v0.1.0.tar.gz"
-  sha256 ""
+  sha256 "PLACEHOLDER"
   license "MIT"
+  head "https://github.com/Soarkey/worktime.git", branch: "master"
 
+  depends_on "go" => :build
   depends_on :macos
 
   def install
-    system "go", "build", *std_go_args(ldflags: "-s -w"), "./cmd/worktime"
+    ldflags = "-s -w -X main.version=#{version}"
+    system "go", "build", *std_go_args(ldflags: ldflags), "./cmd/worktime"
   end
 
   def caveats
@@ -25,6 +28,6 @@ class Worktime < Formula
   end
 
   test do
-    assert_match "macOS 自动考勤", shell_output("#{bin}/worktime --help")
+    assert_match "上下班时间监测", shell_output("#{bin}/worktime --help")
   end
 end
