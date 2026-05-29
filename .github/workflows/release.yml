@@ -1,0 +1,57 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          LDFLAGS="-s -w -X main.version=${VERSION}"
+          go build -ldflags "$LDFLAGS" -o build/worktime ./cmd/worktime
+
+      - name: Create archive
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cd build
+          tar czf "worktime_${VERSION}_darwin_arm64.tar.gz" worktime
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/worktime_*.tar.gz
+          generate_release_notes: true
+
+      - name: Update Homebrew Tap
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          VERSION="${TAG#v}"
+          ASSET_URL="https://github.com/Soarkey/worktime/releases/download/${TAG}/worktime_${VERSION}_darwin_arm64.tar.gz"
+          SHA=$(curl -sL "$ASSET_URL" | shasum -a 256 | cut -d' ' -f1)
+          gh repo clone Soarkey/homebrew-tap /tmp/tap
+          cd /tmp/tap
+          sed -i "s|url \".*\"|url \"${ASSET_URL}\"|" Formula/worktime.rb
+          sed -i "s|sha256 \".*\"|sha256 \"${SHA}\"|" Formula/worktime.rb
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add Formula/worktime.rb
+          git commit -m "worktime ${TAG}"
+          git push
