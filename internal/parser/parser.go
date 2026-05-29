@@ -15,7 +15,7 @@ type Event struct {
 	Type string
 }
 
-var startPatterns = regexp.MustCompile(`(?i)(loginwindow|com\.apple\.powermanagement\.lidopen|Wake from|wake from sleep)`)
+var startPatterns = regexp.MustCompile(`(?i)(loginwindow|com\.apple\.powermanagement\.lidopen)`)
 var leavePatterns = regexp.MustCompile(`(?i)(Display is turned off|Clamshell Sleep)`)
 var timestampRe = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})`)
 
@@ -53,13 +53,15 @@ func parseLines(raw string) map[string][]Event {
 	return events
 }
 
-func FindStartTime(events []Event) *time.Time {
+func FindStartTime(events []Event, startHour int) *time.Time {
+	begin := startHour - 2
+	end := startHour + 2
 	for _, e := range events {
 		if e.Type != "start" {
 			continue
 		}
 		h := e.Time.Hour()
-		if h >= config.StartWindowBeginHour && h < config.StartWindowEndHour {
+		if h >= begin && h <= end {
 			t := e.Time
 			return &t
 		}

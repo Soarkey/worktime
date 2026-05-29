@@ -8,8 +8,6 @@ import (
 )
 
 const (
-	StartWindowBeginHour = 9
-	StartWindowEndHour   = 11
 	LeaveWindowBeginHour = 18
 	PollInterval         = 1 * time.Minute
 )

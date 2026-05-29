@@ -20,7 +20,7 @@ func TestParseLines(t *testing.T) {
 
 	// 2026-05-29: start at 10:12, leave at 22:14
 	day29 := events["2026-05-29"]
-	start := FindStartTime(day29)
+	start := FindStartTime(day29, 10)
 	if start == nil {
 		t.Fatal("expected start time for 2026-05-29")
 	}
@@ -38,7 +38,7 @@ func TestParseLines(t *testing.T) {
 
 	// 2026-05-28: start at 09:58
 	day28 := events["2026-05-28"]
-	start28 := FindStartTime(day28)
+	start28 := FindStartTime(day28, 10)
 	if start28 == nil {
 		t.Fatal("expected start time for 2026-05-28")
 	}
@@ -47,13 +47,25 @@ func TestParseLines(t *testing.T) {
 	}
 }
 
-func TestFindStartTimeOutOfWindow(t *testing.T) {
+func TestFindStartTimeInWindow(t *testing.T) {
 	events := []Event{
-		{Time: time.Date(2026, 5, 29, 8, 30, 0, 0, time.Local), Type: "start"},
 		{Time: time.Date(2026, 5, 29, 11, 30, 0, 0, time.Local), Type: "start"},
 	}
-	start := FindStartTime(events)
+	start := FindStartTime(events, 10)
+	if start == nil {
+		t.Fatal("expected 11:30 to be in window (±2h from 10:00)")
+	}
+	if start.Hour() != 11 || start.Minute() != 30 {
+		t.Errorf("expected 11:30, got %02d:%02d", start.Hour(), start.Minute())
+	}
+}
+
+func TestFindStartTimeOutOfWindow(t *testing.T) {
+	events := []Event{
+		{Time: time.Date(2026, 5, 29, 7, 30, 0, 0, time.Local), Type: "start"},
+	}
+	start := FindStartTime(events, 10)
 	if start != nil {
-		t.Errorf("expected nil (both out of 9-11 window), got %v", start)
+		t.Errorf("expected nil (7:30 is outside ±2h window from 10:00), got %v", start)
 	}
 }

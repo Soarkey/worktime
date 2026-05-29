@@ -73,9 +73,10 @@ func GetToday() (*Status, error) {
 		return nil, fmt.Errorf("parse pmset: %w", err)
 	}
 
+	wh := config.Load()
 	today := time.Now().Format("2006-01-02")
 	todayEvents := events[today]
-	startTime := parser.FindStartTime(todayEvents)
+	startTime := parser.FindStartTime(todayEvents, wh.StartHour)
 	if startTime == nil {
 		return nil, nil
 	}
@@ -90,9 +91,9 @@ func GetToday() (*Status, error) {
 	return &status, nil
 }
 
-func GetByDate(date string, events map[string][]parser.Event) *Status {
+func GetByDate(date string, events map[string][]parser.Event, startHour int) *Status {
 	dayEvents := events[date]
-	startTime := parser.FindStartTime(dayEvents)
+	startTime := parser.FindStartTime(dayEvents, startHour)
 	if startTime == nil {
 		return nil
 	}
@@ -113,6 +114,7 @@ func GetWeek() ([]Status, error) {
 		return nil, fmt.Errorf("parse pmset: %w", err)
 	}
 
+	wh := config.Load()
 	now := time.Now()
 	offset := int(now.Weekday()) - 1
 	if offset < 0 {
@@ -127,7 +129,7 @@ func GetWeek() ([]Status, error) {
 			break
 		}
 		dateStr := day.Format("2006-01-02")
-		if s := GetByDate(dateStr, events); s != nil {
+		if s := GetByDate(dateStr, events, wh.StartHour); s != nil {
 			results = append(results, *s)
 		}
 	}
@@ -140,9 +142,10 @@ func GetAll() ([]Status, error) {
 		return nil, fmt.Errorf("parse pmset: %w", err)
 	}
 
+	wh := config.Load()
 	var results []Status
 	for date := range events {
-		if s := GetByDate(date, events); s != nil {
+		if s := GetByDate(date, events, wh.StartHour); s != nil {
 			results = append(results, *s)
 		}
 	}

@@ -30,6 +30,8 @@ brew tap Soarkey/tap https://github.com/Soarkey/homebrew-tap
 brew install worktime
 ```
 
+安装后自动注册 LaunchAgent 并启动守护进程，无需额外操作。
+
 或一步到位：
 
 ```bash
@@ -48,33 +50,7 @@ make build
 
 ## 使用
 
-### 启动守护进程
-
-```bash
-worktime daemon
-```
-
-启动后菜单栏会显示考勤状态，每分钟自动刷新。
-
-### 设置上下班时间
-
-通过菜单栏点击"设置"项弹窗修改，或使用 CLI：
-
-```bash
-worktime config                          # 查看当前设置
-worktime config --start-hour 9 --start-min 30 --end-hour 18 --end-min 30
-```
-
 配置保存在 `~/.worktime/config.json`，默认上班 10:00，下班 19:00。
-
-### 开机自启
-
-菜单栏中可直接开关，或使用 CLI：
-
-```bash
-worktime install    # 安装 LaunchAgent
-worktime uninstall  # 卸载 LaunchAgent
-```
 
 ### CLI 命令
 
@@ -87,6 +63,12 @@ worktime export -o ~/Desktop/attendance.csv
 ```
 
 ### 卸载
+
+```bash
+brew uninstall worktime
+```
+
+Homebrew 会自动卸载 LaunchAgent 并清理相关文件。如需手动卸载：
 
 ```bash
 worktime uninstall          # 仅卸载 LaunchAgent
