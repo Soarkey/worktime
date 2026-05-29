@@ -50,10 +50,6 @@ func Install() error {
 	}
 
 	ld := logDir()
-	if err := os.MkdirAll(ld, 0755); err != nil {
-		return fmt.Errorf("create log dir: %w", err)
-	}
-
 	path := plistPath()
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return fmt.Errorf("create LaunchAgents dir: %w", err)

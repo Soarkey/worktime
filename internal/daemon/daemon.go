@@ -1,6 +1,8 @@
 package daemon
 
 import (
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/Soarkey/worktime/internal/attendance"
@@ -9,7 +11,13 @@ import (
 	"github.com/Soarkey/worktime/internal/notify"
 )
 
+func ensureLogDir() {
+	home, _ := os.UserHomeDir()
+	os.MkdirAll(filepath.Join(home, "Library", "Logs", "worktime"), 0755)
+}
+
 func Run() error {
+	ensureLogDir()
 	notifier := notify.New()
 	mb := menubar.New(nil)
 
