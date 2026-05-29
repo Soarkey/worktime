@@ -16,7 +16,7 @@ type Event struct {
 }
 
 var startPatterns = regexp.MustCompile(`(?i)(loginwindow|com\.apple\.powermanagement\.lidopen|Wake from|wake from sleep)`)
-var leavePatterns = regexp.MustCompile(`(?i)(Sleep|lidclose|shutdown|logout)`)
+var leavePatterns = regexp.MustCompile(`(?i)(Display is turned off|Clamshell Sleep)`)
 var timestampRe = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})`)
 
 func ParsePmsetLog() (map[string][]Event, error) {

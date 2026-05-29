@@ -8,10 +8,10 @@ import (
 func TestParseLines(t *testing.T) {
 	raw := `2026-05-29 10:12:35 +0800 Notification loginwindow logged in
 2026-05-29 10:15:00 +0800 Notification com.apple.powermanagement.lidopen
-2026-05-29 19:30:00 +0800 Assertions Sleep
-2026-05-29 22:14:00 +0800 Assertions Sleep
+2026-05-29 19:30:00 +0800 Notification        	Display is turned off
+2026-05-29 22:14:00 +0800 Sleep               	Entering Sleep state due to 'Clamshell Sleep':TCPKeepAlive=active
 2026-05-28 09:58:00 +0800 Notification loginwindow logged in
-2026-05-28 19:05:00 +0800 Assertions Sleep
+2026-05-28 19:05:00 +0800 Notification        	Display is turned off
 `
 	events := parseLines(raw)
 	if len(events) != 2 {

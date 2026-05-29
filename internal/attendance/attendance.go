@@ -6,24 +6,24 @@ import (
 
 	"github.com/Soarkey/worktime/internal/config"
 	"github.com/Soarkey/worktime/internal/parser"
-	"github.com/Soarkey/worktime/internal/storage"
 )
 
 type Status struct {
-	WorkDate          string
-	StartTime         string
-	ExpectedLeave     string
-	ActualLeave       string
-	LateMinutes       int
-	RemainingMinutes  int
-	State             string // "working", "soon", "off"
+	WorkDate         string
+	StartTime        string
+	ExpectedLeave    string
+	ActualLeave      string
+	LateMinutes      int
+	RemainingMinutes int
+	State            string // "working", "soon", "off"
 }
 
 func Calculate(startTime time.Time) Status {
+	wh := config.Load()
 	standardStart := time.Date(startTime.Year(), startTime.Month(), startTime.Day(),
-		config.StandardStartHour, config.StandardStartMin, 0, 0, time.Local)
+		wh.StartHour, wh.StartMin, 0, 0, time.Local)
 	standardEnd := time.Date(startTime.Year(), startTime.Month(), startTime.Day(),
-		config.StandardEndHour, config.StandardEndMin, 0, 0, time.Local)
+		wh.EndHour, wh.EndMin, 0, 0, time.Local)
 
 	lateDur := startTime.Sub(standardStart)
 	if lateDur < 0 {
@@ -57,50 +57,94 @@ func Calculate(startTime time.Time) Status {
 func MenuBarTitle(s Status) string {
 	switch s.State {
 	case "off":
-		return "🔴 下班"
+		return "下班"
 	case "soon":
 		h := s.RemainingMinutes / 60
 		m := s.RemainingMinutes % 60
-		return fmt.Sprintf("🟡 %02d:%02d", h, m)
+		return fmt.Sprintf("%02d:%02d", h, m)
 	default:
-		return fmt.Sprintf("🟢 %s", s.ExpectedLeave)
+		return s.ExpectedLeave
 	}
 }
 
-func Sync(store *storage.Store) (*Status, error) {
-	today := time.Now().Format("2006-01-02")
-
+func GetToday() (*Status, error) {
 	events, err := parser.ParsePmsetLog()
 	if err != nil {
 		return nil, fmt.Errorf("parse pmset: %w", err)
 	}
 
+	today := time.Now().Format("2006-01-02")
 	todayEvents := events[today]
 	startTime := parser.FindStartTime(todayEvents)
 	if startTime == nil {
-		existing, _ := store.GetByDate(today)
-		if existing != nil && existing.StartTime != "" {
-			t, _ := time.ParseInLocation("2006-01-02 15:04", today+" "+existing.StartTime, time.Local)
-			status := Calculate(t)
-			status.ActualLeave = existing.ActualLeaveTime
-			return &status, nil
-		}
 		return nil, nil
 	}
 
 	status := Calculate(*startTime)
 
-	if err := store.UpsertStart(today, status.StartTime, status.ExpectedLeave, status.LateMinutes); err != nil {
-		return nil, fmt.Errorf("upsert start: %w", err)
-	}
-
 	leaveTime := parser.FindLeaveTime(todayEvents)
 	if leaveTime != nil {
 		status.ActualLeave = leaveTime.Format("15:04")
-		if err := store.UpdateActualLeave(today, status.ActualLeave); err != nil {
-			return nil, fmt.Errorf("update leave: %w", err)
-		}
 	}
 
 	return &status, nil
+}
+
+func GetByDate(date string, events map[string][]parser.Event) *Status {
+	dayEvents := events[date]
+	startTime := parser.FindStartTime(dayEvents)
+	if startTime == nil {
+		return nil
+	}
+
+	status := Calculate(*startTime)
+
+	leaveTime := parser.FindLeaveTime(dayEvents)
+	if leaveTime != nil {
+		status.ActualLeave = leaveTime.Format("15:04")
+	}
+
+	return &status
+}
+
+func GetWeek() ([]Status, error) {
+	events, err := parser.ParsePmsetLog()
+	if err != nil {
+		return nil, fmt.Errorf("parse pmset: %w", err)
+	}
+
+	now := time.Now()
+	offset := int(now.Weekday()) - 1
+	if offset < 0 {
+		offset = 6
+	}
+	monday := now.AddDate(0, 0, -offset)
+
+	var results []Status
+	for i := 0; i < 7; i++ {
+		day := monday.AddDate(0, 0, i)
+		if day.After(now) {
+			break
+		}
+		dateStr := day.Format("2006-01-02")
+		if s := GetByDate(dateStr, events); s != nil {
+			results = append(results, *s)
+		}
+	}
+	return results, nil
+}
+
+func GetAll() ([]Status, error) {
+	events, err := parser.ParsePmsetLog()
+	if err != nil {
+		return nil, fmt.Errorf("parse pmset: %w", err)
+	}
+
+	var results []Status
+	for date := range events {
+		if s := GetByDate(date, events); s != nil {
+			results = append(results, *s)
+		}
+	}
+	return results, nil
 }

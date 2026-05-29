@@ -83,6 +83,11 @@ func Install() error {
 	return nil
 }
 
+func IsInstalled() bool {
+	_, err := os.Stat(plistPath())
+	return err == nil
+}
+
 func Uninstall(purge bool) error {
 	path := plistPath()
 	if _, err := os.Stat(path); os.IsNotExist(err) {
@@ -100,12 +105,6 @@ func Uninstall(purge bool) error {
 		ld := logDir()
 		if err := os.RemoveAll(ld); err == nil {
 			fmt.Printf("已清理日志: %s\n", ld)
-		}
-
-		home, _ := os.UserHomeDir()
-		dataDir := filepath.Join(home, "Library", "Application Support", "worktime")
-		if err := os.RemoveAll(dataDir); err == nil {
-			fmt.Printf("已清理数据: %s\n", dataDir)
 		}
 	}
 
