@@ -86,7 +86,14 @@ func (m *MenuBar) onReady() {
 	m.mConfig.Click(func() { go m.showConfigDialog() })
 
 	m.mTestNotify = systray.AddMenuItem("提醒测试", "发送测试通知")
-	m.mTestNotify.Click(func() { go notify.Test() })
+	m.mTestNotify.Click(func() {
+		go func() {
+			if err := notify.Test(); err != nil {
+				exec.Command("/usr/bin/osascript", "-e",
+					fmt.Sprintf(`display dialog %q with title "通知失败" buttons {"确定"} default button "确定"`, err.Error())).Run()
+			}
+		}()
+	})
 
 	if brewservice.IsRunning() {
 		m.mAutoStart = systray.AddMenuItem("开机启动: 已开启", "点击关闭开机启动")

@@ -1,10 +1,6 @@
 package notify
 
-import (
-	"fmt"
-	"os/exec"
-	"sync"
-)
+import "sync"
 
 type Notifier struct {
 	mu   sync.Mutex
@@ -31,11 +27,6 @@ func (n *Notifier) SendOnce(key, title, message string) error {
 	n.mu.Unlock()
 
 	return send(title, message)
-}
-
-func send(title, message string) error {
-	script := fmt.Sprintf(`display notification %q with title %q`, message, title)
-	return exec.Command("osascript", "-e", script).Run()
 }
 
 func Test() error {

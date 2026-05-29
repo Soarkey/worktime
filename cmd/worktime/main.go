@@ -4,11 +4,16 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
+	"syscall"
 
 	"github.com/Soarkey/worktime/internal/attendance"
 	"github.com/Soarkey/worktime/internal/brewservice"
 	"github.com/Soarkey/worktime/internal/config"
+	"github.com/Soarkey/worktime/internal/daemon"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +23,7 @@ func main() {
 		Short: "macOS 上下班时间监测菜单栏工具",
 	}
 
-	root.AddCommand(todayCmd(), weekCmd(), exportCmd(), startCmd(), stopCmd(), configCmd())
+	root.AddCommand(todayCmd(), weekCmd(), exportCmd(), startCmd(), stopCmd(), configCmd(), daemonCmd())
 
 	if err := root.Execute(); err != nil {
 		os.Exit(1)
@@ -125,9 +130,29 @@ func exportCmd() *cobra.Command {
 func startCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "start",
-		Short: "启动",
+		Short: "启动菜单栏应用",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return brewservice.Start()
+			if _, err := daemon.EnsureBundle(); err != nil {
+				return err
+			}
+			if err := brewservice.Start(); err != nil {
+				return err
+			}
+			if err := daemon.Start(); err != nil {
+				return err
+			}
+			fmt.Println("worktime 已在后台启动")
+			return nil
+		},
+	}
+}
+
+func daemonCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "daemon",
+		Short: "后台守护进程（由 start 或 launchd 调用）",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return daemon.Run()
 		},
 	}
 }
@@ -135,11 +160,25 @@ func startCmd() *cobra.Command {
 func stopCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop",
-		Short: "停止",
+		Short: "停止菜单栏应用",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return brewservice.Stop()
+			brewservice.Stop()
+			killDaemon()
+			return nil
 		},
 	}
+}
+
+func killDaemon() {
+	data, err := os.ReadFile(filepath.Join(os.TempDir(), "worktime.pid"))
+	if err != nil {
+		return
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
+	if err != nil {
+		return
+	}
+	syscall.Kill(pid, syscall.SIGTERM)
 }
 
 func configCmd() *cobra.Command {
