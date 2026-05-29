@@ -29,3 +29,5 @@ vendor/
 *.db-shm
 *.db-wal
 *.csv
+
+.codegraph/

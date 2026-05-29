@@ -49,7 +49,7 @@ func (m *MenuBar) onReady() {
 	systray.SetTooltip("worktime")
 
 	systray.SetOnClick(func(menu systray.IMenu) { menu.ShowMenu() })
-	systray.SetOnRClick(func(menu systray.IMenu) { go m.toggleAutoStart() })
+	systray.SetOnRClick(func(menu systray.IMenu) { menu.ShowMenu() })
 
 	m.mStatus = systray.AddMenuItem("加载中...", "当前状态")
 	m.mStatus.Disable()
@@ -97,6 +97,7 @@ func (m *MenuBar) onReady() {
 
 	m.mQuit = systray.AddMenuItem("退出", "退出 worktime")
 	m.mQuit.Click(func() {
+		launchagent.Unload()
 		systray.Quit()
 		os.Exit(0)
 	})
@@ -226,7 +227,7 @@ func (m *MenuBar) toggleAutoStart() {
 		launchagent.Uninstall(false)
 		m.mAutoStart.SetTitle("开机启动: 已关闭")
 	} else {
-		launchagent.Install()
+		launchagent.SaveOnly()
 		m.mAutoStart.SetTitle("开机启动: 已开启")
 	}
 }

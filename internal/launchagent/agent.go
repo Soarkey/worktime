@@ -77,6 +77,45 @@ func Install() error {
 	return nil
 }
 
+func Unload() error {
+	path := plistPath()
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil
+	}
+	return exec.Command("launchctl", "unload", path).Run()
+}
+
+func SaveOnly() error {
+	binary, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("get executable path: %w", err)
+	}
+
+	path := plistPath()
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("create LaunchAgents dir: %w", err)
+	}
+
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("create plist: %w", err)
+	}
+	defer f.Close()
+
+	data := struct {
+		Label  string
+		Binary string
+		LogDir string
+	}{plistLabel, binary, LogDir}
+
+	if err := plistTmpl.Execute(f, data); err != nil {
+		return fmt.Errorf("write plist: %w", err)
+	}
+
+	fmt.Printf("已安装 LaunchAgent: %s\n", path)
+	return nil
+}
+
 func IsInstalled() bool {
 	_, err := os.Stat(plistPath())
 	return err == nil
