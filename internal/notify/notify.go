@@ -1,0 +1,39 @@
+package notify
+
+import (
+	"fmt"
+	"os/exec"
+	"sync"
+)
+
+type Notifier struct {
+	mu   sync.Mutex
+	sent map[string]bool
+}
+
+func New() *Notifier {
+	return &Notifier{sent: make(map[string]bool)}
+}
+
+func (n *Notifier) ResetDaily() {
+	n.mu.Lock()
+	n.sent = make(map[string]bool)
+	n.mu.Unlock()
+}
+
+func (n *Notifier) SendOnce(key, title, message string) error {
+	n.mu.Lock()
+	if n.sent[key] {
+		n.mu.Unlock()
+		return nil
+	}
+	n.sent[key] = true
+	n.mu.Unlock()
+
+	return send(title, message)
+}
+
+func send(title, message string) error {
+	script := fmt.Sprintf(`display notification %q with title %q`, message, title)
+	return exec.Command("osascript", "-e", script).Run()
+}

@@ -1,0 +1,214 @@
+package main
+
+import (
+	"encoding/csv"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/Soarkey/worktime/internal/attendance"
+	"github.com/Soarkey/worktime/internal/daemon"
+	"github.com/Soarkey/worktime/internal/launchagent"
+	"github.com/Soarkey/worktime/internal/storage"
+	"github.com/spf13/cobra"
+)
+
+func main() {
+	root := &cobra.Command{
+		Use:   "worktime",
+		Short: "macOS 自动考勤菜单栏工具",
+	}
+
+	root.AddCommand(daemonCmd(), statusCmd(), todayCmd(), weekCmd(), exportCmd(), installCmd(), uninstallCmd())
+
+	if err := root.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+
+func daemonCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "daemon",
+		Short: "启动后台守护进程（菜单栏 + 通知）",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return daemon.Run()
+		},
+	}
+}
+
+func statusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "查看当前考勤状态",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := storage.New()
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+
+			status, err := attendance.Sync(store)
+			if err != nil {
+				return err
+			}
+			if status == nil {
+				fmt.Println("未检测到今日上班时间")
+				return nil
+			}
+
+			fmt.Printf("日期: %s\n", status.WorkDate)
+			fmt.Printf("上班: %s\n", status.StartTime)
+			fmt.Printf("预计下班: %s\n", status.ExpectedLeave)
+			if status.LateMinutes > 0 {
+				fmt.Printf("迟到: %d 分钟\n", status.LateMinutes)
+			}
+			if status.ActualLeave != "" {
+				fmt.Printf("实际下班: %s\n", status.ActualLeave)
+			}
+			fmt.Printf("状态: %s\n", attendance.MenuBarTitle(*status))
+			return nil
+		},
+	}
+}
+
+func todayCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "today",
+		Short: "查看今日考勤详情",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := storage.New()
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+
+			today := time.Now().Format("2006-01-02")
+			a, err := store.GetByDate(today)
+			if err != nil {
+				return err
+			}
+			if a == nil {
+				fmt.Println("今日无考勤记录")
+				return nil
+			}
+
+			fmt.Printf("日期: %s\n", a.WorkDate)
+			fmt.Printf("上班: %s\n", a.StartTime)
+			fmt.Printf("预计下班: %s\n", a.ExpectedLeaveTime)
+			if a.LateMinutes > 0 {
+				fmt.Printf("迟到: %d 分钟\n", a.LateMinutes)
+			}
+			if a.ActualLeaveTime != "" {
+				fmt.Printf("实际下班: %s\n", a.ActualLeaveTime)
+			}
+			return nil
+		},
+	}
+}
+
+func weekCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "week",
+		Short: "查看本周考勤统计",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := storage.New()
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+
+			now := time.Now()
+			offset := int(now.Weekday()) - 1
+			if offset < 0 {
+				offset = 6
+			}
+			monday := now.AddDate(0, 0, -offset).Format("2006-01-02")
+
+			records, err := store.GetWeek(monday)
+			if err != nil {
+				return err
+			}
+			if len(records) == 0 {
+				fmt.Println("本周无考勤记录")
+				return nil
+			}
+
+			fmt.Printf("%-12s %-6s %-6s %-6s %s\n", "日期", "上班", "预计", "实际", "迟到")
+			fmt.Println("-----------------------------------------------")
+			for _, r := range records {
+				late := ""
+				if r.LateMinutes > 0 {
+					late = fmt.Sprintf("%d分钟", r.LateMinutes)
+				}
+				fmt.Printf("%-12s %-6s %-6s %-6s %s\n",
+					r.WorkDate, r.StartTime, r.ExpectedLeaveTime, r.ActualLeaveTime, late)
+			}
+			return nil
+		},
+	}
+}
+
+func exportCmd() *cobra.Command {
+	var output string
+	cmd := &cobra.Command{
+		Use:   "export",
+		Short: "导出考勤记录为 CSV",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			store, err := storage.New()
+			if err != nil {
+				return err
+			}
+			defer store.Close()
+
+			records, err := store.GetAll()
+			if err != nil {
+				return err
+			}
+			if len(records) == 0 {
+				fmt.Println("无考勤记录")
+				return nil
+			}
+
+			f, err := os.Create(output)
+			if err != nil {
+				return fmt.Errorf("create file: %w", err)
+			}
+			defer f.Close()
+
+			w := csv.NewWriter(f)
+			w.Write([]string{"日期", "上班时间", "预计下班", "实际下班", "迟到(分钟)"})
+			for _, r := range records {
+				w.Write([]string{r.WorkDate, r.StartTime, r.ExpectedLeaveTime, r.ActualLeaveTime, fmt.Sprintf("%d", r.LateMinutes)})
+			}
+			w.Flush()
+
+			fmt.Printf("已导出 %d 条记录到 %s\n", len(records), output)
+			return nil
+		},
+	}
+	cmd.Flags().StringVarP(&output, "output", "o", "worktime.csv", "输出文件路径")
+	return cmd
+}
+
+func installCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "install",
+		Short: "安装 LaunchAgent（开机自启）",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return launchagent.Install()
+		},
+	}
+}
+
+func uninstallCmd() *cobra.Command {
+	var purge bool
+	cmd := &cobra.Command{
+		Use:   "uninstall",
+		Short: "卸载 LaunchAgent",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return launchagent.Uninstall(purge)
+		},
+	}
+	cmd.Flags().BoolVar(&purge, "purge", false, "同时清理日志和数据库")
+	return cmd
+}
