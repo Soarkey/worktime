@@ -97,7 +97,7 @@ jobs:
           git commit -m "worktime v${{ steps.sha.outputs.version }}"
 
           git remote set-url origin \
-            "https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/Soarkey/homebrew-tap.git"
+            "https://Soarkey:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/Soarkey/homebrew-tap.git"
 
           git push origin HEAD:main
 
