@@ -74,11 +74,16 @@ jobs:
             "$FORMULA"
 
           ruby -pi -e \
+            "gsub(/^  version \".*\"$/, '  version \"' + ENV['VERSION'] + '\"')" \
+            "$FORMULA"
+
+          ruby -pi -e \
             "gsub(/^  sha256 \".*\"$/, '  sha256 \"' + ENV['SHA'] + '\"')" \
             "$FORMULA"
         env:
           URL: https://github.com/Soarkey/worktime/releases/download/v${{ steps.sha.outputs.version }}/worktime_${{ steps.sha.outputs.version }}_darwin_arm64.tar.gz
           SHA: ${{ steps.sha.outputs.sha256 }}
+          VERSION: ${{ steps.sha.outputs.version }}
 
       - name: Commit and Push Formula
         run: |
