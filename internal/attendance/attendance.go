@@ -9,7 +9,7 @@ import (
 )
 
 func getEvents() (map[string][]parser.Event, error) {
-	return parser.ParsePmsetLog()
+	return parser.GetParsedLog()
 }
 
 type Status struct {

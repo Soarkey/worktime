@@ -90,14 +90,6 @@ func Run(version string) error {
 
 	releaseMemory()
 
-	go func() {
-		ticker := time.NewTicker(30 * time.Second)
-		defer ticker.Stop()
-		for range ticker.C {
-			releaseMemory()
-		}
-	}()
-
 	mb.Run()
 	return nil
 }
