@@ -5,6 +5,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 	"syscall"
@@ -63,7 +65,20 @@ func acquireSingleton() error {
 	return writePid()
 }
 
+func tuneMemory() {
+	runtime.GOMAXPROCS(1)
+	debug.SetGCPercent(5)
+	debug.SetMemoryLimit(6 * 1024 * 1024)
+}
+
+func releaseMemory() {
+	runtime.GC()
+	debug.FreeOSMemory()
+}
+
 func Run(version string) error {
+	tuneMemory()
+
 	if err := acquireSingleton(); err != nil {
 		return err
 	}
@@ -72,6 +87,16 @@ func Run(version string) error {
 	mb := menubar.New(version)
 
 	go scheduleUpdates(mb)
+
+	releaseMemory()
+
+	go func() {
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for range ticker.C {
+			releaseMemory()
+		}
+	}()
 
 	mb.Run()
 	return nil

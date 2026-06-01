@@ -26,10 +26,11 @@ type MenuBar struct {
 	mWeek     *systray.MenuItem
 	weekItems []*systray.MenuItem
 	weekSumm  *systray.MenuItem
-	mExport     *systray.MenuItem
-	mConfig     *systray.MenuItem
-	mAutoStart  *systray.MenuItem
-	mQuit       *systray.MenuItem
+	mExport      *systray.MenuItem
+	mConfig      *systray.MenuItem
+	mConfigRange *systray.MenuItem
+	mAutoStart   *systray.MenuItem
+	mQuit        *systray.MenuItem
 }
 
 func New(version string) *MenuBar {
@@ -79,10 +80,13 @@ func (m *MenuBar) onReady() {
 	m.mExport.Click(func() { go exportCSV() })
 
 	wh := config.Load()
+	m.mConfig = systray.AddMenuItem(fmt.Sprintf("设置 (上班 %02d:%02d / 下班 %02d:%02d)", wh.StartHour, wh.StartMin, wh.EndHour, wh.EndMin), "设置上下班时间")
+	m.mConfig.Click(func() { go m.showConfigDialog() })
+
 	rbH, rbM := wh.RangeBegin()/60, wh.RangeBegin()%60
 	reH, reM := wh.RangeEnd()/60, wh.RangeEnd()%60
-	m.mConfig = systray.AddMenuItem(fmt.Sprintf("设置 (上班 %02d:%02d / 下班 %02d:%02d / 上班统计时间段 %02d:%02d-%02d:%02d)", wh.StartHour, wh.StartMin, wh.EndHour, wh.EndMin, rbH, rbM, reH, reM), "设置上下班时间")
-	m.mConfig.Click(func() { go m.showConfigDialog() })
+	m.mConfigRange = systray.AddMenuItem(fmt.Sprintf("设置检测时间段 (%02d:%02d-%02d:%02d)", rbH, rbM, reH, reM), "设置上班检测时间段")
+	m.mConfigRange.Click(func() { go m.showConfigRangeDialog() })
 
 	if brewservice.IsRunning() {
 		m.mAutoStart = systray.AddMenuItem("开机启动: 已开启", "点击关闭开机启动")
@@ -219,9 +223,46 @@ func (m *MenuBar) showConfigDialog() {
 	if err := config.Save(wh); err != nil {
 		return
 	}
+	m.mConfig.SetTitle(fmt.Sprintf("设置 (上班 %02d:%02d / 下班 %02d:%02d)", sh, sm, eh, em))
+}
+
+func (m *MenuBar) showConfigRangeDialog() {
+	wh := config.Load()
 	rbH, rbM := wh.RangeBegin()/60, wh.RangeBegin()%60
 	reH, reM := wh.RangeEnd()/60, wh.RangeEnd()%60
-	m.mConfig.SetTitle(fmt.Sprintf("设置 (上班 %02d:%02d / 下班 %02d:%02d / 统计 %02d:%02d-%02d:%02d)", sh, sm, eh, em, rbH, rbM, reH, reM))
+	current := fmt.Sprintf("%02d:%02d-%02d:%02d", rbH, rbM, reH, reM)
+	script := fmt.Sprintf(`display dialog "请输入上班检测时间段 (格式 HH:MM-HH:MM)" default answer "%s" with title "worktime 设置"`, current)
+	out, err := exec.Command("osascript", "-e", script).Output()
+	if err != nil {
+		return
+	}
+	text := strings.TrimSpace(string(out))
+	idx := strings.Index(text, "text returned:")
+	if idx < 0 {
+		return
+	}
+	val := strings.TrimSpace(text[idx+len("text returned:"):])
+	parts := strings.Split(val, "-")
+	if len(parts) != 2 {
+		return
+	}
+	begin := strings.Split(strings.TrimSpace(parts[0]), ":")
+	end := strings.Split(strings.TrimSpace(parts[1]), ":")
+	if len(begin) != 2 || len(end) != 2 {
+		return
+	}
+	bh, _ := strconv.Atoi(begin[0])
+	bm, _ := strconv.Atoi(begin[1])
+	eh, _ := strconv.Atoi(end[0])
+	em, _ := strconv.Atoi(end[1])
+	wh.RangeBeginHour = bh
+	wh.RangeBeginMin = bm
+	wh.RangeEndHour = eh
+	wh.RangeEndMin = em
+	if err := config.Save(wh); err != nil {
+		return
+	}
+	m.mConfigRange.SetTitle(fmt.Sprintf("设置检测时间段 (%02d:%02d-%02d:%02d)", bh, bm, eh, em))
 }
 
 func (m *MenuBar) toggleAutoStart() {

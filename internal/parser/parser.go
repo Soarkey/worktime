@@ -1,7 +1,6 @@
 package parser
 
 import (
-	"bufio"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -30,9 +29,7 @@ func ParsePmsetLog() (map[string][]Event, error) {
 
 func parseLines(raw string) map[string][]Event {
 	events := make(map[string][]Event)
-	scanner := bufio.NewScanner(strings.NewReader(raw))
-	for scanner.Scan() {
-		line := scanner.Text()
+	for _, line := range strings.Split(raw, "\n") {
 		matches := timestampRe.FindStringSubmatch(line)
 		if len(matches) < 3 {
 			continue

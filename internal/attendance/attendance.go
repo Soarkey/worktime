@@ -2,36 +2,14 @@ package attendance
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/Soarkey/worktime/internal/config"
 	"github.com/Soarkey/worktime/internal/parser"
 )
 
-var (
-	lastEvents   map[string][]parser.Event
-	lastEventsMu sync.Mutex
-	lastEventsAt time.Time
-)
-
 func getEvents() (map[string][]parser.Event, error) {
-	lastEventsMu.Lock()
-	defer lastEventsMu.Unlock()
-
-	now := time.Now()
-	if lastEvents != nil && now.Sub(lastEventsAt) < 5*time.Second {
-		return lastEvents, nil
-	}
-
-	events, err := parser.ParsePmsetLog()
-	if err != nil {
-		return nil, err
-	}
-
-	lastEvents = events
-	lastEventsAt = now
-	return events, nil
+	return parser.ParsePmsetLog()
 }
 
 type Status struct {
