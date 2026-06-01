@@ -1,117 +1,116 @@
 name: Release
 
 on:
-push:
-tags:
-- "v*"
+  push:
+    tags:
+      - "v*"
 
 jobs:
-release:
-runs-on: macos-14
+  release:
+    runs-on: macos-14
 
-permissions:
-  contents: write
+    permissions:
+      contents: write
 
-steps:
-  - name: Checkout source
-    uses: actions/checkout@v5
-    with:
-      fetch-depth: 0
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
-  - name: Setup Go
-    uses: actions/setup-go@v6
-    with:
-      go-version-file: go.mod
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
 
-  - name: Build
-    run: |
-      VERSION="${GITHUB_REF_NAME#v}"
+      - name: Build
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
 
-      mkdir -p build
+          mkdir -p build
 
-      go build \
-        -trimpath \
-        -ldflags="-s -w -X main.version=${VERSION}" \
-        -o build/worktime \
-        ./cmd/worktime
+          go build \
+            -trimpath \
+            -ldflags="-s -w -X main.version=${VERSION}" \
+            -o build/worktime \
+            ./cmd/worktime
 
-  - name: Create archive
-    run: |
-      VERSION="${GITHUB_REF_NAME#v}"
+      - name: Create archive
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
 
-      tar czf \
-        "build/worktime_${VERSION}_darwin_arm64.tar.gz" \
-        -C build \
-        worktime
+          tar czf \
+            "build/worktime_${VERSION}_darwin_arm64.tar.gz" \
+            -C build \
+            worktime
 
-  - name: Calculate SHA256
-    id: sha
-    run: |
-      VERSION="${GITHUB_REF_NAME#v}"
+      - name: Calculate SHA256
+        id: sha
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
 
-      SHA=$(shasum -a 256 \
-        "build/worktime_${VERSION}_darwin_arm64.tar.gz" \
-        | awk '{print $1}')
+          SHA=$(shasum -a 256 \
+            "build/worktime_${VERSION}_darwin_arm64.tar.gz" \
+            | awk '{print $1}')
 
-      echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-      echo "sha256=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "sha256=${SHA}" >> "$GITHUB_OUTPUT"
 
-  - name: Create GitHub Release
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    run: |
-      gh release create \
-        "${GITHUB_REF_NAME}" \
-        build/worktime_*.tar.gz \
-        --generate-notes
+      - name: Create GitHub Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create \
+            "${GITHUB_REF_NAME}" \
+            build/worktime_*.tar.gz \
+            --generate-notes
 
-  - name: Checkout homebrew-tap
-    uses: actions/checkout@v5
-    with:
-      repository: Soarkey/homebrew-tap
-      token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-      path: homebrew-tap
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v5
+        with:
+          repository: Soarkey/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
 
-  - name: Update Formula
-    env:
-      URL: https://github.com/Soarkey/worktime/releases/download/v${{ steps.sha.outputs.version }}/worktime_${{ steps.sha.outputs.version }}_darwin_arm64.tar.gz
-      VERSION: ${{ steps.sha.outputs.version }}
-      SHA: ${{ steps.sha.outputs.sha256 }}
-    run: |
-      FORMULA="homebrew-tap/Formula/worktime.rb"
+      - name: Update Formula
+        env:
+          URL: https://github.com/Soarkey/worktime/releases/download/v${{ steps.sha.outputs.version }}/worktime_${{ steps.sha.outputs.version }}_darwin_arm64.tar.gz
+          VERSION: ${{ steps.sha.outputs.version }}
+          SHA: ${{ steps.sha.outputs.sha256 }}
+        run: |
+          FORMULA="homebrew-tap/Formula/worktime.rb"
 
-      ruby -pi -e \
-        "gsub(/^  url \".*\"$/, '  url \"' + ENV['URL'] + '\"')" \
-        "$FORMULA"
+          ruby -pi -e \
+            "gsub(/^  url \".*\"$/, '  url \"' + ENV['URL'] + '\"')" \
+            "$FORMULA"
 
-      ruby -pi -e \
-        "gsub(/^  version \".*\"$/, '  version \"' + ENV['VERSION'] + '\"')" \
-        "$FORMULA"
+          ruby -pi -e \
+            "gsub(/^  version \".*\"$/, '  version \"' + ENV['VERSION'] + '\"')" \
+            "$FORMULA"
 
-      ruby -pi -e \
-        "gsub(/^  sha256 \".*\"$/, '  sha256 \"' + ENV['SHA'] + '\"')" \
-        "$FORMULA"
+          ruby -pi -e \
+            "gsub(/^  sha256 \".*\"$/, '  sha256 \"' + ENV['SHA'] + '\"')" \
+            "$FORMULA"
 
-  - name: Commit and Push Formula
-    env:
-      TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-    run: |
-      cd homebrew-tap
+      - name: Commit and Push Formula
+        env:
+          TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          cd homebrew-tap
 
-      git config user.name "github-actions[bot]"
-      git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      git add Formula/worktime.rb
+          git add Formula/worktime.rb
 
-      if git diff --cached --quiet; then
-        echo "No formula changes"
-        exit 0
-      fi
+          if git diff --cached --quiet; then
+            echo "No formula changes"
+            exit 0
+          fi
 
-      git commit -m "worktime v${{ steps.sha.outputs.version }}"
+          git commit -m "worktime v${{ steps.sha.outputs.version }}"
 
-      git remote set-url origin \
-        "https://Soarkey:${TOKEN}@github.com/Soarkey/homebrew-tap.git"
+          git remote set-url origin \
+            "https://Soarkey:${TOKEN}@github.com/Soarkey/homebrew-tap.git"
 
-      git push origin HEAD:main
-
+          git push origin HEAD:main
