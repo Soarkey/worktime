@@ -4,13 +4,9 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"time"
 )
 
-const (
-	LeaveWindowBeginHour = 18
-	PollInterval         = 1 * time.Minute
-)
+const LeaveWindowBeginHour = 18
 
 type WorkHours struct {
 	StartHour int `json:"start_hour"`

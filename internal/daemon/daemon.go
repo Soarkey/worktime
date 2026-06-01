@@ -11,13 +11,9 @@ import (
 	"time"
 
 	"github.com/Soarkey/worktime/internal/attendance"
-	"github.com/Soarkey/worktime/internal/config"
 	"github.com/Soarkey/worktime/internal/menubar"
-	"github.com/Soarkey/worktime/internal/notify"
 )
 
-// Start ensures the .app bundle exists, then launches the daemon inside it
-// in a detached background process and returns immediately.
 func Start() error {
 	bundlePath, err := EnsureBundle()
 	if err != nil {
@@ -73,49 +69,26 @@ func Run(version string) error {
 	}
 	defer removePid()
 
-	notifier := notify.New()
 	mb := menubar.New(version)
 
-	go pollLoop(notifier, mb)
+	go scheduleUpdates(mb)
 
 	mb.Run()
 	return nil
 }
 
-func pollLoop(notifier *notify.Notifier, mb *menubar.MenuBar) {
-	lastDate := ""
-	tick := time.NewTicker(config.PollInterval)
-	defer tick.Stop()
-
-	poll(notifier, mb, &lastDate)
-	for range tick.C {
-		poll(notifier, mb, &lastDate)
-	}
-}
-
-func poll(notifier *notify.Notifier, mb *menubar.MenuBar, lastDate *string) {
-	today := time.Now().Format("2006-01-02")
-	if *lastDate != today {
-		notifier.ResetDaily()
-		*lastDate = today
-	}
-
+func scheduleUpdates(mb *menubar.MenuBar) {
 	status, err := attendance.GetToday()
 	if err != nil {
 		return
 	}
-
 	mb.Update(status)
 
-	if status == nil {
+	if status == nil || status.State == "off" {
 		return
 	}
 
-	if status.RemainingMinutes <= 0 {
-		notifier.SendOnce("done", "worktime", "到点下班了！")
-	}
-
-	if status.State == "off" {
-		return
-	}
+	time.AfterFunc(time.Duration(status.RemainingMinutes)*time.Minute, func() {
+		mb.SetOffTitle()
+	})
 }

@@ -2,11 +2,37 @@ package attendance
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/Soarkey/worktime/internal/config"
 	"github.com/Soarkey/worktime/internal/parser"
 )
+
+var (
+	lastEvents   map[string][]parser.Event
+	lastEventsMu sync.Mutex
+	lastEventsAt time.Time
+)
+
+func getEvents() (map[string][]parser.Event, error) {
+	lastEventsMu.Lock()
+	defer lastEventsMu.Unlock()
+
+	now := time.Now()
+	if lastEvents != nil && now.Sub(lastEventsAt) < 5*time.Second {
+		return lastEvents, nil
+	}
+
+	events, err := parser.ParsePmsetLog()
+	if err != nil {
+		return nil, err
+	}
+
+	lastEvents = events
+	lastEventsAt = now
+	return events, nil
+}
 
 type Status struct {
 	WorkDate         string
@@ -15,7 +41,7 @@ type Status struct {
 	ActualLeave      string
 	LateMinutes      int
 	RemainingMinutes int
-	State            string // "working", "soon", "off"
+	State            string
 }
 
 func Calculate(startTime time.Time) Status {
@@ -68,7 +94,7 @@ func MenuBarTitle(s Status) string {
 }
 
 func GetToday() (*Status, error) {
-	events, err := parser.ParsePmsetLog()
+	events, err := getEvents()
 	if err != nil {
 		return nil, fmt.Errorf("parse pmset: %w", err)
 	}
@@ -109,7 +135,7 @@ func GetByDate(date string, events map[string][]parser.Event, startHour int) *St
 }
 
 func GetWeek() ([]Status, error) {
-	events, err := parser.ParsePmsetLog()
+	events, err := getEvents()
 	if err != nil {
 		return nil, fmt.Errorf("parse pmset: %w", err)
 	}
@@ -137,7 +163,7 @@ func GetWeek() ([]Status, error) {
 }
 
 func GetAll() ([]Status, error) {
-	events, err := parser.ParsePmsetLog()
+	events, err := getEvents()
 	if err != nil {
 		return nil, fmt.Errorf("parse pmset: %w", err)
 	}

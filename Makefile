@@ -6,7 +6,7 @@ LDFLAGS := -s -w -X main.version=$(VERSION)
 .PHONY: build clean install uninstall test
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY) ./cmd/worktime
+	go build -trimpath -ldflags "$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY) ./cmd/worktime
 
 clean:
 	rm -rf $(BUILD_DIR)

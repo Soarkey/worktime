@@ -39,8 +39,6 @@ func exportCSV() {
 		w.Write([]string{r.WorkDate, r.StartTime, r.ExpectedLeave, r.ActualLeave, fmt.Sprintf("%d", r.LateMinutes)})
 	}
 	w.Flush()
-
-	exec.Command("osascript", "-e", fmt.Sprintf(`display notification "已导出 %d 条记录" with title "worktime"`, len(records))).Run()
 }
 
 func chooseSavePath() (string, error) {

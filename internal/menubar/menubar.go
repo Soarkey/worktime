@@ -11,28 +11,23 @@ import (
 	"github.com/Soarkey/worktime/internal/attendance"
 	"github.com/Soarkey/worktime/internal/brewservice"
 	"github.com/Soarkey/worktime/internal/config"
-	"github.com/Soarkey/worktime/internal/notify"
 )
 
 type MenuBar struct {
 	version string
 
 	mStatus *systray.MenuItem
-	// today submenu
 	mToday     *systray.MenuItem
 	todayDate  *systray.MenuItem
 	todayStart *systray.MenuItem
 	todayEnd   *systray.MenuItem
 	todayLate  *systray.MenuItem
 	todayLeave *systray.MenuItem
-	// week submenu
 	mWeek     *systray.MenuItem
 	weekItems []*systray.MenuItem
 	weekSumm  *systray.MenuItem
-	// export & quit
 	mExport     *systray.MenuItem
 	mConfig     *systray.MenuItem
-	mTestNotify *systray.MenuItem
 	mAutoStart  *systray.MenuItem
 	mQuit       *systray.MenuItem
 }
@@ -87,16 +82,6 @@ func (m *MenuBar) onReady() {
 	m.mConfig = systray.AddMenuItem(fmt.Sprintf("设置 (上班 %02d:%02d / 下班 %02d:%02d)", wh.StartHour, wh.StartMin, wh.EndHour, wh.EndMin), "设置上下班时间")
 	m.mConfig.Click(func() { go m.showConfigDialog() })
 
-	m.mTestNotify = systray.AddMenuItem("提醒测试", "发送测试通知")
-	m.mTestNotify.Click(func() {
-		go func() {
-			if err := notify.Test(); err != nil {
-				exec.Command("/usr/bin/osascript", "-e",
-					fmt.Sprintf(`display dialog %q with title "通知失败" buttons {"确定"} default button "确定"`, err.Error())).Run()
-			}
-		}()
-	})
-
 	if brewservice.IsRunning() {
 		m.mAutoStart = systray.AddMenuItem("开机启动: 已开启", "点击关闭开机启动")
 	} else {
@@ -112,7 +97,7 @@ func (m *MenuBar) onReady() {
 		systray.Quit()
 	})
 
-	mVersion := systray.AddMenuItem(m.version, "")
+	mVersion := systray.AddMenuItem(fmt.Sprintf("当前版本 v%s", m.version), "")
 	mVersion.Disable()
 }
 
@@ -142,6 +127,10 @@ func (m *MenuBar) Update(status *attendance.Status) {
 	m.todayLeave.SetTitle(fmt.Sprintf("实际下班: %s", leave))
 
 	m.refreshWeek()
+}
+
+func (m *MenuBar) SetOffTitle() {
+	systray.SetTitle("下班")
 }
 
 var weekdayNames = [...]string{"周日", "周一", "周二", "周三", "周四", "周五", "周六"}
@@ -203,7 +192,6 @@ func (m *MenuBar) showConfigDialog() {
 		return
 	}
 	text := strings.TrimSpace(string(out))
-	// output: "button returned:OK, text returned:10:00-19:00"
 	idx := strings.Index(text, "text returned:")
 	if idx < 0 {
 		return

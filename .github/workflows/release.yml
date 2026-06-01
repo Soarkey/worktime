@@ -25,12 +25,11 @@ steps:
   - name: Build
     run: |
       VERSION="${GITHUB_REF_NAME#v}"
-      LDFLAGS="-s -w -X main.version=${VERSION}"
-
       mkdir -p build
 
       go build \
-        -ldflags "$LDFLAGS" \
+        -trimpath \
+        -ldflags="-s -w -X main.version=${VERSION}" \
         -o build/worktime \
         ./cmd/worktime
 

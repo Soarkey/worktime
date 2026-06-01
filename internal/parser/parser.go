@@ -20,7 +20,8 @@ var leavePatterns = regexp.MustCompile(`(?i)(Display is turned off|Clamshell Sle
 var timestampRe = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})`)
 
 func ParsePmsetLog() (map[string][]Event, error) {
-	out, err := exec.Command("pmset", "-g", "log").Output()
+	out, err := exec.Command("bash", "-c",
+		`pmset -g log | grep -i -E "loginwindow|lidopen|Display is turned off|Clamshell Sleep" | tail -n 100`).Output()
 	if err != nil {
 		return nil, err
 	}
