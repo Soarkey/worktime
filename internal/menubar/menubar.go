@@ -79,7 +79,9 @@ func (m *MenuBar) onReady() {
 	m.mExport.Click(func() { go exportCSV() })
 
 	wh := config.Load()
-	m.mConfig = systray.AddMenuItem(fmt.Sprintf("设置 (上班 %02d:%02d / 下班 %02d:%02d)", wh.StartHour, wh.StartMin, wh.EndHour, wh.EndMin), "设置上下班时间")
+	rbH, rbM := wh.RangeBegin()/60, wh.RangeBegin()%60
+	reH, reM := wh.RangeEnd()/60, wh.RangeEnd()%60
+	m.mConfig = systray.AddMenuItem(fmt.Sprintf("设置 (上班 %02d:%02d / 下班 %02d:%02d / 上班统计时间段 %02d:%02d-%02d:%02d)", wh.StartHour, wh.StartMin, wh.EndHour, wh.EndMin, rbH, rbM, reH, reM), "设置上下班时间")
 	m.mConfig.Click(func() { go m.showConfigDialog() })
 
 	if brewservice.IsRunning() {
@@ -210,11 +212,16 @@ func (m *MenuBar) showConfigDialog() {
 	sm, _ := strconv.Atoi(start[1])
 	eh, _ := strconv.Atoi(end[0])
 	em, _ := strconv.Atoi(end[1])
-	wh = config.WorkHours{StartHour: sh, StartMin: sm, EndHour: eh, EndMin: em}
+	wh.StartHour = sh
+	wh.StartMin = sm
+	wh.EndHour = eh
+	wh.EndMin = em
 	if err := config.Save(wh); err != nil {
 		return
 	}
-	m.mConfig.SetTitle(fmt.Sprintf("设置 (上班 %02d:%02d / 下班 %02d:%02d)", sh, sm, eh, em))
+	rbH, rbM := wh.RangeBegin()/60, wh.RangeBegin()%60
+	reH, reM := wh.RangeEnd()/60, wh.RangeEnd()%60
+	m.mConfig.SetTitle(fmt.Sprintf("设置 (上班 %02d:%02d / 下班 %02d:%02d / 统计 %02d:%02d-%02d:%02d)", sh, sm, eh, em, rbH, rbM, reH, reM))
 }
 
 func (m *MenuBar) toggleAutoStart() {

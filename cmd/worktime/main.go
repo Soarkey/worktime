@@ -187,6 +187,8 @@ func runConfig(args []string) {
 	startMin := fs.Int("start-min", 0, "上班分钟 (0-59)")
 	endHour := fs.Int("end-hour", 0, "下班小时 (0-23)")
 	endMin := fs.Int("end-min", 0, "下班分钟 (0-59)")
+	rangeBegin := fs.String("range-begin", "", "上班统计开始时间 (HH:MM)")
+	rangeEnd := fs.String("range-end", "", "上班统计结束时间 (HH:MM)")
 	if err := fs.Parse(args); err != nil {
 		os.Exit(1)
 	}
@@ -210,6 +212,20 @@ func runConfig(args []string) {
 		wh.EndMin = v
 		changed = true
 	}
+	if v := *rangeBegin; v != "" || hasFlag(args, "range-begin") {
+		if h, m, err := parseHHMM(v); err == nil {
+			wh.RangeBeginHour = h
+			wh.RangeBeginMin = m
+			changed = true
+		}
+	}
+	if v := *rangeEnd; v != "" || hasFlag(args, "range-end") {
+		if h, m, err := parseHHMM(v); err == nil {
+			wh.RangeEndHour = h
+			wh.RangeEndMin = m
+			changed = true
+		}
+	}
 
 	if changed {
 		if err := config.Save(wh); err != nil {
@@ -219,8 +235,27 @@ func runConfig(args []string) {
 		fmt.Println("已保存")
 	}
 
-	fmt.Printf("上班时间: %02d:%02d\n", wh.StartHour, wh.StartMin)
-	fmt.Printf("下班时间: %02d:%02d\n", wh.EndHour, wh.EndMin)
+	fmt.Printf("上班时间:   %02d:%02d\n", wh.StartHour, wh.StartMin)
+	fmt.Printf("下班时间:   %02d:%02d\n", wh.EndHour, wh.EndMin)
+	rbH, rbM := wh.RangeBegin()/60, wh.RangeBegin()%60
+	reH, reM := wh.RangeEnd()/60, wh.RangeEnd()%60
+	fmt.Printf("上班统计时间段: %02d:%02d - %02d:%02d\n", rbH, rbM, reH, reM)
+}
+
+func parseHHMM(s string) (hour, min int, err error) {
+	parts := strings.Split(s, ":")
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("invalid format: %s", s)
+	}
+	hour, err = strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, err
+	}
+	min, err = strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	return hour, min, nil
 }
 
 func hasFlag(args []string, name string) bool {

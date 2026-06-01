@@ -102,7 +102,7 @@ func GetToday() (*Status, error) {
 	wh := config.Load()
 	today := time.Now().Format("2006-01-02")
 	todayEvents := events[today]
-	startTime := parser.FindStartTime(todayEvents, wh.StartHour)
+	startTime := parser.FindStartTime(todayEvents, wh.RangeBegin(), wh.RangeEnd())
 	if startTime == nil {
 		return nil, nil
 	}
@@ -117,9 +117,9 @@ func GetToday() (*Status, error) {
 	return &status, nil
 }
 
-func GetByDate(date string, events map[string][]parser.Event, startHour int) *Status {
+func GetByDate(date string, events map[string][]parser.Event, rangeBegin, rangeEnd int) *Status {
 	dayEvents := events[date]
-	startTime := parser.FindStartTime(dayEvents, startHour)
+	startTime := parser.FindStartTime(dayEvents, rangeBegin, rangeEnd)
 	if startTime == nil {
 		return nil
 	}
@@ -155,7 +155,7 @@ func GetWeek() ([]Status, error) {
 			break
 		}
 		dateStr := day.Format("2006-01-02")
-		if s := GetByDate(dateStr, events, wh.StartHour); s != nil {
+		if s := GetByDate(dateStr, events, wh.RangeBegin(), wh.RangeEnd()); s != nil {
 			results = append(results, *s)
 		}
 	}
@@ -171,7 +171,7 @@ func GetAll() ([]Status, error) {
 	wh := config.Load()
 	var results []Status
 	for date := range events {
-		if s := GetByDate(date, events, wh.StartHour); s != nil {
+		if s := GetByDate(date, events, wh.RangeBegin(), wh.RangeEnd()); s != nil {
 			results = append(results, *s)
 		}
 	}

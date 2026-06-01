@@ -13,6 +13,11 @@ type WorkHours struct {
 	StartMin  int `json:"start_min"`
 	EndHour   int `json:"end_hour"`
 	EndMin    int `json:"end_min"`
+
+	RangeBeginHour int `json:"range_begin_hour,omitempty"`
+	RangeBeginMin  int `json:"range_begin_min,omitempty"`
+	RangeEndHour   int `json:"range_end_hour,omitempty"`
+	RangeEndMin    int `json:"range_end_min,omitempty"`
 }
 
 var defaultWorkHours = WorkHours{
@@ -20,6 +25,20 @@ var defaultWorkHours = WorkHours{
 	StartMin:  0,
 	EndHour:   19,
 	EndMin:    0,
+}
+
+func (wh WorkHours) RangeBegin() int {
+	if wh.RangeBeginHour == 0 && wh.RangeBeginMin == 0 {
+		return (wh.StartHour - 2) * 60
+	}
+	return wh.RangeBeginHour*60 + wh.RangeBeginMin
+}
+
+func (wh WorkHours) RangeEnd() int {
+	if wh.RangeEndHour == 0 && wh.RangeEndMin == 0 {
+		return (wh.StartHour + 2) * 60
+	}
+	return wh.RangeEndHour*60 + wh.RangeEndMin
 }
 
 func configDir() string {

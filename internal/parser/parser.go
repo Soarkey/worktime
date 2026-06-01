@@ -54,15 +54,13 @@ func parseLines(raw string) map[string][]Event {
 	return events
 }
 
-func FindStartTime(events []Event, startHour int) *time.Time {
-	begin := startHour - 2
-	end := startHour + 2
+func FindStartTime(events []Event, rangeBegin, rangeEnd int) *time.Time {
 	for _, e := range events {
 		if e.Type != "start" {
 			continue
 		}
-		h := e.Time.Hour()
-		if h >= begin && h <= end {
+		mins := e.Time.Hour()*60 + e.Time.Minute()
+		if mins >= rangeBegin && mins <= rangeEnd {
 			t := e.Time
 			return &t
 		}
