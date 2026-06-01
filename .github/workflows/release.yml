@@ -63,7 +63,6 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: Soarkey/homebrew-tap
-          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: homebrew-tap
 
       - name: Update Formula
@@ -96,5 +95,9 @@ jobs:
           fi
 
           git commit -m "worktime v${{ steps.sha.outputs.version }}"
+
+          git remote set-url origin \
+            "https://x-access-token:${{ secrets.HOMEBREW_TAP_TOKEN }}@github.com/Soarkey/homebrew-tap.git"
+
           git push origin HEAD:main
 
