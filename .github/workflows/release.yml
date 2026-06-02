@@ -60,6 +60,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          gh release delete "${GITHUB_REF_NAME}" --yes 2>/dev/null || true
+
           gh release create \
             "${GITHUB_REF_NAME}" \
             build/worktime_*.tar.gz \
