@@ -23,6 +23,7 @@ type MenuBar struct {
 	todayEnd   *systray.MenuItem
 	todayLate  *systray.MenuItem
 	todayLeave *systray.MenuItem
+	todayModify *systray.MenuItem
 	mWeek     *systray.MenuItem
 	weekItems []*systray.MenuItem
 	weekSumm  *systray.MenuItem
@@ -64,6 +65,8 @@ func (m *MenuBar) onReady() {
 	m.todayLate.Disable()
 	m.todayLeave = m.mToday.AddSubMenuItem("实际下班: --", "")
 	m.todayLeave.Disable()
+	m.todayModify = m.mToday.AddSubMenuItem("修改今日上班时间...", "手动修正今日上班开始时间")
+	m.todayModify.Click(func() { go m.showModifyTodayDialog() })
 
 	m.mWeek = systray.AddMenuItem("本周统计", "")
 	m.weekItems = make([]*systray.MenuItem, 7)
@@ -268,5 +271,42 @@ func (m *MenuBar) toggleAutoStart() {
 	} else {
 		brewservice.Start()
 		m.mAutoStart.SetTitle("开机启动: 已开启")
+	}
+}
+
+func (m *MenuBar) showModifyTodayDialog() {
+	today := time.Now().Format("2006-01-02")
+	current := ""
+	if override := config.LoadOverride(today); override != nil {
+		current = fmt.Sprintf("%02d:%02d", override.Hour, override.Min)
+	} else if status, _ := attendance.GetToday(); status != nil {
+		current = status.StartTime
+	}
+
+	script := fmt.Sprintf(`display dialog "请输入今日上班时间 (格式 HH:MM)" default answer "%s" with title "修改今日上班时间"`, current)
+	out, err := exec.Command("osascript", "-e", script).Output()
+	if err != nil {
+		return
+	}
+	text := strings.TrimSpace(string(out))
+	idx := strings.Index(text, "text returned:")
+	if idx < 0 {
+		return
+	}
+	val := strings.TrimSpace(text[idx+len("text returned:"):])
+	parts := strings.Split(val, ":")
+	if len(parts) != 2 {
+		return
+	}
+	hh, _ := strconv.Atoi(parts[0])
+	mm, _ := strconv.Atoi(parts[1])
+
+	if err := config.SaveOverride(today, hh, mm); err != nil {
+		return
+	}
+
+	attendance.ClearCache()
+	if status, err := attendance.GetToday(); err == nil {
+		m.Update(status)
 	}
 }

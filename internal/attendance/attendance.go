@@ -24,15 +24,21 @@ func getEvents() (map[string][]parser.Event, error) {
 	}
 	cacheMu.RUnlock()
 
+	cacheMu.Lock()
+	if cacheEvents != nil && time.Since(cacheTime) < 15*time.Second {
+		ev := cacheEvents
+		cacheMu.Unlock()
+		return ev, nil
+	}
+	defer cacheMu.Unlock()
+
 	events, err := parser.GetParsedLog()
 	if err != nil {
 		return nil, err
 	}
 
-	cacheMu.Lock()
 	cacheEvents = events
 	cacheTime = time.Now()
-	cacheMu.Unlock()
 	return events, nil
 }
 
@@ -46,7 +52,7 @@ type Status struct {
 	State            string
 }
 
-func Calculate(startTime time.Time) Status {
+func Calculate(startTime time.Time, now time.Time) Status {
 	wh := config.Load()
 	standardStart := time.Date(startTime.Year(), startTime.Month(), startTime.Day(),
 		wh.StartHour, wh.StartMin, 0, 0, time.Local)
@@ -61,7 +67,6 @@ func Calculate(startTime time.Time) Status {
 
 	expectedLeave := standardEnd.Add(lateDur)
 
-	now := time.Now()
 	remaining := expectedLeave.Sub(now)
 	remainingMin := int(remaining.Minutes())
 
@@ -105,11 +110,18 @@ func GetToday() (*Status, error) {
 	today := time.Now().Format("2006-01-02")
 	todayEvents := events[today]
 	startTime := parser.FindStartTime(todayEvents, wh.RangeBegin(), wh.RangeEnd())
+
+	if override := config.LoadOverride(today); override != nil {
+		t := time.Date(time.Now().Year(), time.Now().Month(), time.Now().Day(),
+			override.Hour, override.Min, 0, 0, time.Local)
+		startTime = &t
+	}
+
 	if startTime == nil {
 		return nil, nil
 	}
 
-	status := Calculate(*startTime)
+	status := Calculate(*startTime, time.Now())
 
 	leaveTime := parser.FindLeaveTime(todayEvents)
 	if leaveTime != nil {
@@ -122,11 +134,21 @@ func GetToday() (*Status, error) {
 func GetByDate(date string, events map[string][]parser.Event, rangeBegin, rangeEnd int) *Status {
 	dayEvents := events[date]
 	startTime := parser.FindStartTime(dayEvents, rangeBegin, rangeEnd)
+
+	if override := config.LoadOverride(date); override != nil {
+		t, err := time.Parse("2006-01-02", date)
+		if err == nil {
+			t = time.Date(t.Year(), t.Month(), t.Day(),
+				override.Hour, override.Min, 0, 0, time.Local)
+			startTime = &t
+		}
+	}
+
 	if startTime == nil {
 		return nil
 	}
 
-	status := Calculate(*startTime)
+	status := Calculate(*startTime, time.Now())
 
 	leaveTime := parser.FindLeaveTime(dayEvents)
 	if leaveTime != nil {
@@ -162,6 +184,14 @@ func GetWeek() ([]Status, error) {
 		}
 	}
 	return results, nil
+}
+
+func ClearCache() {
+	cacheMu.Lock()
+	cacheTime = time.Time{}
+	cacheEvents = nil
+	cacheMu.Unlock()
+	parser.ClearCache()
 }
 
 func GetAll() ([]Status, error) {

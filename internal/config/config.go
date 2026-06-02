@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 )
 
-const LeaveWindowBeginHour = 18
-
 type WorkHours struct {
 	StartHour int `json:"start_hour"`
 	StartMin  int `json:"start_min"`

@@ -20,7 +20,7 @@ var timestampRe = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})
 
 func ParsePmsetLog() (map[string][]Event, error) {
 	out, err := exec.Command("bash", "-c",
-		`pmset -g log | grep -i -E "loginwindow|lidopen|Display is turned off|Clamshell Sleep" | tail -n 100`).Output()
+		`pmset -g log | grep -i -E "loginwindow|lidopen|Display is turned off|Clamshell Sleep" | tail -n 1000`).Output()
 	if err != nil {
 		return nil, err
 	}
@@ -66,12 +66,18 @@ func FindStartTime(events []Event, rangeBegin, rangeEnd int) *time.Time {
 }
 
 func FindLeaveTime(events []Event) *time.Time {
+	wh := config.Load()
+	endThreshold := wh.EndHour
+	if endThreshold < 10 {
+		endThreshold = 10
+	}
+
 	var last *time.Time
 	for _, e := range events {
 		if e.Type != "leave" {
 			continue
 		}
-		if e.Time.Hour() >= config.LeaveWindowBeginHour {
+		if e.Time.Hour() >= endThreshold {
 			t := e.Time
 			last = &t
 		}

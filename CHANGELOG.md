@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.1.6 (2026-06-02)
+
+### 新增
+- 菜单栏「今日详情」新增子项「修改今日上班时间...」，支持手动修正上班开始时间
+  - 修改后持久化到 `~/.worktime/override.json`，按日期存储
+  - 修改后立即刷新菜单栏状态和本周统计
+- 本周统计（`GetWeek` / `GetByDate`）同步支持上班时间覆盖，与今日详情保持一致
+
+### 修复
+- 下班事件检测阈值由硬编码 `LeaveWindowBeginHour=18` 改为跟随用户配置的下班时间
+- `GetByDate` 历史日期 `RemainingMinutes`/`State` 使用 `time.Now()` 计算不准确的问题（改为入参传入）
+
+### 优化
+- `pmset` 日志采集从 `tail -n 100` 提升至 `tail -n 1000`，减少高频 lid 开合场景的历史数据丢失
+- `getEvents` 增加 double-checked locking，避免并发竞态下冗余 pmset 调用
+- `ClearCache` 同时清空 parser 层缓存，确保手动修改后两级缓存一致刷新
+- 移除已无引用的常量 `LeaveWindowBeginHour`
+
 ## v0.1.5 (2026-06-02)
 
 ### 修复
