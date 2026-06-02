@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Soarkey/worktime/internal/attendance"
+	"github.com/Soarkey/worktime/internal/config"
 	"github.com/Soarkey/worktime/internal/menubar"
 )
 
@@ -67,7 +68,7 @@ func acquireSingleton() error {
 
 func tuneMemory() {
 	runtime.GOMAXPROCS(1)
-	debug.SetGCPercent(5)
+	debug.SetGCPercent(50)
 	debug.SetMemoryLimit(6 * 1024 * 1024)
 }
 
@@ -94,18 +95,50 @@ func Run(version string) error {
 	return nil
 }
 
+func todayAt(hour, min int) time.Time {
+	now := time.Now()
+	return time.Date(now.Year(), now.Month(), now.Day(), hour, min, 0, 0, time.Local)
+}
+
 func scheduleUpdates(mb *menubar.MenuBar) {
-	status, err := attendance.GetToday()
-	if err != nil {
-		return
-	}
-	mb.Update(status)
+	var tick func()
+	tick = func() {
+		status, err := attendance.GetToday()
+		if err == nil {
+			mb.Update(status)
+		}
 
-	if status == nil || status.State == "off" {
-		return
+		now := time.Now()
+		wh := config.Load()
+		var next time.Duration
+
+		if status == nil {
+			rb := todayAt(wh.RangeBegin()/60, wh.RangeBegin()%60)
+			re := todayAt(wh.RangeEnd()/60, wh.RangeEnd()%60)
+			switch {
+			case now.Before(rb):
+				next = rb.Sub(now)
+			case now.After(re):
+				next = rb.AddDate(0, 0, 1).Sub(now)
+			default:
+				next = 5 * time.Minute
+			}
+		} else if status.State == "off" {
+			rb := todayAt(wh.RangeBegin()/60, wh.RangeBegin()%60)
+			if now.After(rb) {
+				rb = rb.AddDate(0, 0, 1)
+			}
+			next = rb.Sub(now)
+		} else {
+			if status.RemainingMinutes > 0 {
+				next = time.Duration(status.RemainingMinutes+1) * time.Minute
+			} else {
+				next = 5 * time.Minute
+			}
+		}
+
+		time.AfterFunc(next, tick)
 	}
 
-	time.AfterFunc(time.Duration(status.RemainingMinutes)*time.Minute, func() {
-		mb.SetOffTitle()
-	})
+	tick()
 }

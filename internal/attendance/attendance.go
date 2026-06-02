@@ -2,14 +2,38 @@ package attendance
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/Soarkey/worktime/internal/config"
 	"github.com/Soarkey/worktime/internal/parser"
 )
 
+var (
+	cacheMu     sync.RWMutex
+	cacheEvents map[string][]parser.Event
+	cacheTime   time.Time
+)
+
 func getEvents() (map[string][]parser.Event, error) {
-	return parser.GetParsedLog()
+	cacheMu.RLock()
+	if cacheEvents != nil && time.Since(cacheTime) < 15*time.Second {
+		ev := cacheEvents
+		cacheMu.RUnlock()
+		return ev, nil
+	}
+	cacheMu.RUnlock()
+
+	events, err := parser.GetParsedLog()
+	if err != nil {
+		return nil, err
+	}
+
+	cacheMu.Lock()
+	cacheEvents = events
+	cacheTime = time.Now()
+	cacheMu.Unlock()
+	return events, nil
 }
 
 type Status struct {
