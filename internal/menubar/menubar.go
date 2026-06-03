@@ -396,6 +396,29 @@ func stripMarkdown(s string) string {
 	return s
 }
 
+func extractVersionSection(content, version string) string {
+	var buf strings.Builder
+	marker := "## v" + version
+	inSection := false
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "## v") {
+			if inSection {
+				break
+			}
+			if trimmed == marker || strings.HasPrefix(trimmed, marker+" ") {
+				inSection = true
+				continue
+			}
+		}
+		if inSection {
+			buf.WriteString(line)
+			buf.WriteByte('\n')
+		}
+	}
+	return strings.TrimSpace(buf.String())
+}
+
 func (m *MenuBar) buildVersionSubmenu() {
 	parent := systray.AddMenuItem(fmt.Sprintf("当前版本 v%s", m.version), "")
 	content := loadChangelog()
@@ -404,7 +427,13 @@ func (m *MenuBar) buildVersionSubmenu() {
 		item.Disable()
 		return
 	}
-	for _, line := range strings.Split(content, "\n") {
+	section := extractVersionSection(content, m.version)
+	if section == "" {
+		item := parent.AddSubMenuItem("暂无更新记录", "")
+		item.Disable()
+		return
+	}
+	for _, line := range strings.Split(section, "\n") {
 		text := strings.TrimSpace(line)
 		if text == "" {
 			continue
