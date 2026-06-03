@@ -8,6 +8,24 @@ import (
 
 const bundleID = "com.soarkey.worktime"
 
+func copyChangelog(appDir string) {
+	src := filepath.Join(filepath.Dir(appDir), "CHANGELOG.md")
+	if _, err := os.Stat(src); os.IsNotExist(err) {
+		exe, _ := os.Executable()
+		src = filepath.Join(filepath.Dir(exe), "CHANGELOG.md")
+		if _, err := os.Stat(src); os.IsNotExist(err) {
+			return
+		}
+	}
+	data, err := os.ReadFile(src)
+	if err != nil {
+		return
+	}
+	resDir := filepath.Join(appDir, "Contents", "Resources")
+	os.MkdirAll(resDir, 0755)
+	os.WriteFile(filepath.Join(resDir, "CHANGELOG.md"), data, 0644)
+}
+
 // EnsureBundle creates a minimal .app bundle at <executable-dir>/worktime.app
 // so that NSApplication has a proper CFBundleIdentifier for macOS notifications.
 // Returns the path to the binary inside the bundle.
@@ -55,6 +73,8 @@ func EnsureBundle() (string, error) {
 	if err := os.WriteFile(plistPath, []byte(plist), 0644); err != nil {
 		return "", fmt.Errorf("写入 Info.plist 失败: %w", err)
 	}
+
+	copyChangelog(appDir)
 
 	return binPath, nil
 }

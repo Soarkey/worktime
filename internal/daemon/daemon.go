@@ -124,17 +124,9 @@ func scheduleUpdates(mb *menubar.MenuBar) {
 				next = 5 * time.Minute
 			}
 		} else if status.State == "off" {
-			rb := todayAt(wh.RangeBegin()/60, wh.RangeBegin()%60)
-			if now.After(rb) {
-				rb = rb.AddDate(0, 0, 1)
-			}
-			next = rb.Sub(now)
+			next = 30 * time.Minute
 		} else {
-			if status.RemainingMinutes > 0 {
-				next = time.Duration(status.RemainingMinutes+1) * time.Minute
-			} else {
-				next = 5 * time.Minute
-			}
+			next = 5 * time.Minute
 		}
 
 		time.AfterFunc(next, tick)

@@ -2,7 +2,9 @@ package menubar
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -11,6 +13,7 @@ import (
 	"github.com/Soarkey/worktime/internal/attendance"
 	"github.com/Soarkey/worktime/internal/brewservice"
 	"github.com/Soarkey/worktime/internal/config"
+	"github.com/Soarkey/worktime/internal/parser"
 )
 
 type MenuBar struct {
@@ -46,7 +49,10 @@ func (m *MenuBar) onReady() {
 	systray.SetTitle("⏳")
 	systray.SetTooltip("worktime")
 
-	systray.SetOnClick(func(menu systray.IMenu) { menu.ShowMenu() })
+	systray.SetOnClick(func(menu systray.IMenu) {
+		go m.refresh()
+		menu.ShowMenu()
+	})
 	systray.SetOnRClick(func(menu systray.IMenu) { menu.ShowMenu() })
 
 	m.mStatus = systray.AddMenuItem("加载中...", "当前状态")
@@ -65,8 +71,6 @@ func (m *MenuBar) onReady() {
 	m.todayLate.Disable()
 	m.todayLeave = m.mToday.AddSubMenuItem("实际下班: --", "")
 	m.todayLeave.Disable()
-	m.todayModify = m.mToday.AddSubMenuItem("修改今日上班时间...", "手动修正今日上班开始时间")
-	m.todayModify.Click(func() { go m.showModifyTodayDialog() })
 
 	m.mWeek = systray.AddMenuItem("本周统计", "")
 	m.weekItems = make([]*systray.MenuItem, 7)
@@ -76,6 +80,9 @@ func (m *MenuBar) onReady() {
 	}
 	m.weekSumm = m.mWeek.AddSubMenuItem("--", "")
 	m.weekSumm.Disable()
+
+	m.todayModify = systray.AddMenuItem("修改今日上班时间...", "手动修正今日上班开始时间")
+	m.todayModify.Click(func() { go m.showModifyTodayDialog() })
 
 	systray.AddSeparator()
 
@@ -106,8 +113,14 @@ func (m *MenuBar) onReady() {
 		systray.Quit()
 	})
 
-	mVersion := systray.AddMenuItem(fmt.Sprintf("当前版本 v%s", m.version), "")
-	mVersion.Disable()
+	m.buildVersionSubmenu()
+}
+
+func (m *MenuBar) refresh() {
+	attendance.ClearCache()
+	if status, err := attendance.GetToday(); err == nil {
+		m.Update(status)
+	}
 }
 
 func (m *MenuBar) Update(status *attendance.Status) {
@@ -276,6 +289,7 @@ func (m *MenuBar) toggleAutoStart() {
 
 func (m *MenuBar) showModifyTodayDialog() {
 	today := time.Now().Format("2006-01-02")
+
 	current := ""
 	if override := config.LoadOverride(today); override != nil {
 		current = fmt.Sprintf("%02d:%02d", override.Hour, override.Min)
@@ -283,17 +297,57 @@ func (m *MenuBar) showModifyTodayDialog() {
 		current = status.StartTime
 	}
 
-	script := fmt.Sprintf(`display dialog "请输入今日上班时间 (格式 HH:MM)" default answer "%s" with title "修改今日上班时间"`, current)
+	wh := config.Load()
+	rb := wh.RangeBegin()
+	re := wh.RangeEnd()
+	seen := make(map[string]bool)
+	var opts []string
+	if events, err := parser.GetParsedLog(); err == nil {
+		for _, e := range events[today] {
+			if e.Type != "start" {
+				continue
+			}
+			mins := e.Time.Hour()*60 + e.Time.Minute()
+			if mins >= rb && mins <= re {
+				t := e.Time.Format("15:04")
+				if !seen[t] {
+					seen[t] = true
+					opts = append(opts, t)
+				}
+			}
+		}
+	}
+
+	if current != "" && !seen[current] {
+		opts = append([]string{current}, opts...)
+	}
+	opts = append(opts, "手动输入...")
+
+	listItems := strings.Join(opts, `", "`)
+	script := fmt.Sprintf(
+		`set chosen to choose from list {"%s"} with title "修改今日上班时间" with prompt "请选择今日的上班时间（根据亮屏记录）:" default items {"%s"}
+if chosen is false then return "cancel"
+return item 1 of chosen`, listItems, current)
 	out, err := exec.Command("osascript", "-e", script).Output()
-	if err != nil {
+	if err != nil || string(out) == "cancel" {
 		return
 	}
-	text := strings.TrimSpace(string(out))
-	idx := strings.Index(text, "text returned:")
-	if idx < 0 {
-		return
+	val := strings.TrimSpace(string(out))
+
+	if val == "手动输入..." {
+		script := fmt.Sprintf(`display dialog "请输入今日上班时间 (格式 HH:MM)" default answer "%s" with title "修改今日上班时间"`, current)
+		out, err := exec.Command("osascript", "-e", script).Output()
+		if err != nil {
+			return
+		}
+		text := strings.TrimSpace(string(out))
+		idx := strings.Index(text, "text returned:")
+		if idx < 0 {
+			return
+		}
+		val = strings.TrimSpace(text[idx+len("text returned:"):])
 	}
-	val := strings.TrimSpace(text[idx+len("text returned:"):])
+
 	parts := strings.Split(val, ":")
 	if len(parts) != 2 {
 		return
@@ -308,5 +362,58 @@ func (m *MenuBar) showModifyTodayDialog() {
 	attendance.ClearCache()
 	if status, err := attendance.GetToday(); err == nil {
 		m.Update(status)
+	}
+}
+
+func loadChangelog() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	dir := filepath.Dir(exe)
+	paths := []string{
+		filepath.Join(dir, "..", "Resources", "CHANGELOG.md"),
+		filepath.Join(dir, "CHANGELOG.md"),
+	}
+	wd, _ := os.Getwd()
+	if wd != "" {
+		paths = append(paths, filepath.Join(wd, "CHANGELOG.md"))
+	}
+	for _, p := range paths {
+		data, err := os.ReadFile(p)
+		if err == nil {
+			return string(data)
+		}
+	}
+	return ""
+}
+
+func stripMarkdown(s string) string {
+	s = strings.TrimPrefix(s, "- ")
+	s = strings.TrimPrefix(s, "  - ")
+	s = strings.TrimPrefix(s, "* ")
+	s = strings.TrimLeft(s, "# ")
+	return s
+}
+
+func (m *MenuBar) buildVersionSubmenu() {
+	parent := systray.AddMenuItem(fmt.Sprintf("当前版本 v%s", m.version), "")
+	content := loadChangelog()
+	if content == "" {
+		item := parent.AddSubMenuItem("未找到更新日志", "")
+		item.Disable()
+		return
+	}
+	for _, line := range strings.Split(content, "\n") {
+		text := strings.TrimSpace(line)
+		if text == "" {
+			continue
+		}
+		text = stripMarkdown(text)
+		if len(text) > 80 {
+			text = text[:80] + "..."
+		}
+		item := parent.AddSubMenuItem(text, "")
+		item.Disable()
 	}
 }
