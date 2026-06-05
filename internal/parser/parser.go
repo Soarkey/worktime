@@ -14,13 +14,13 @@ type Event struct {
 	Type string
 }
 
-var startPatterns = regexp.MustCompile(`(?i)(loginwindow|com\.apple\.powermanagement\.lidopen)`)
+var startPatterns = regexp.MustCompile(`(?i)(Display is turned on|loginwindow|com\.apple\.powermanagement\.lidopen)`)
 var leavePatterns = regexp.MustCompile(`(?i)(Display is turned off|Clamshell Sleep)`)
 var timestampRe = regexp.MustCompile(`^(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})`)
 
 func ParsePmsetLog() (map[string][]Event, error) {
 	out, err := exec.Command("bash", "-c",
-		`pmset -g log | grep -i -E "loginwindow|lidopen|Display is turned off|Clamshell Sleep" | tail -n 1000`).Output()
+		`pmset -g log | grep -i -E "Display is turned on|loginwindow|lidopen|Display is turned off|Clamshell Sleep" | tail -n 1000`).Output()
 	if err != nil {
 		return nil, err
 	}
