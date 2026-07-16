@@ -419,6 +419,23 @@ func extractVersionSection(content, version string) string {
 	return strings.TrimSpace(buf.String())
 }
 
+func extractLatestVersion(content string) string {
+	for _, line := range strings.Split(content, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "## v") {
+			v := strings.TrimPrefix(trimmed, "## v")
+			if idx := strings.Index(v, " "); idx > 0 {
+				v = strings.TrimSpace(v[:idx])
+			}
+			if idx := strings.Index(v, "("); idx > 0 {
+				v = strings.TrimSpace(v[:idx])
+			}
+			return v
+		}
+	}
+	return ""
+}
+
 func (m *MenuBar) buildVersionSubmenu() {
 	parent := systray.AddMenuItem(fmt.Sprintf("当前版本 v%s", m.version), "")
 	content := loadChangelog()
@@ -427,7 +444,13 @@ func (m *MenuBar) buildVersionSubmenu() {
 		item.Disable()
 		return
 	}
-	section := extractVersionSection(content, m.version)
+	latestVer := extractLatestVersion(content)
+	if latestVer == "" {
+		item := parent.AddSubMenuItem("未找到版本信息", "")
+		item.Disable()
+		return
+	}
+	section := extractVersionSection(content, latestVer)
 	if section == "" {
 		item := parent.AddSubMenuItem("暂无更新记录", "")
 		item.Disable()

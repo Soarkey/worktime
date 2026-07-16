@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/Soarkey/worktime/internal/attendance"
-	"github.com/Soarkey/worktime/internal/config"
 	"github.com/Soarkey/worktime/internal/menubar"
 )
 
@@ -95,42 +94,14 @@ func Run(version string) error {
 	return nil
 }
 
-func todayAt(hour, min int) time.Time {
-	now := time.Now()
-	return time.Date(now.Year(), now.Month(), now.Day(), hour, min, 0, 0, time.Local)
-}
-
 func scheduleUpdates(mb *menubar.MenuBar) {
 	var tick func()
 	tick = func() {
-		status, err := attendance.GetToday()
-		if err == nil {
+		attendance.ClearCache()
+		if status, err := attendance.GetToday(); err == nil {
 			mb.Update(status)
 		}
-
-		now := time.Now()
-		wh := config.Load()
-		var next time.Duration
-
-		if status == nil {
-			rb := todayAt(wh.RangeBegin()/60, wh.RangeBegin()%60)
-			re := todayAt(wh.RangeEnd()/60, wh.RangeEnd()%60)
-			switch {
-			case now.Before(rb):
-				next = rb.Sub(now)
-			case now.After(re):
-				next = rb.AddDate(0, 0, 1).Sub(now)
-			default:
-				next = 5 * time.Minute
-			}
-		} else if status.State == "off" {
-			next = 30 * time.Minute
-		} else {
-			next = 5 * time.Minute
-		}
-
-		time.AfterFunc(next, tick)
+		time.AfterFunc(time.Minute, tick)
 	}
-
 	tick()
 }
