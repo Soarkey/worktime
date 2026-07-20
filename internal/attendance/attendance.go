@@ -2,45 +2,11 @@ package attendance
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/Soarkey/worktime/internal/config"
 	"github.com/Soarkey/worktime/internal/parser"
 )
-
-var (
-	cacheMu     sync.RWMutex
-	cacheEvents map[string][]parser.Event
-	cacheTime   time.Time
-)
-
-func getEvents() (map[string][]parser.Event, error) {
-	cacheMu.RLock()
-	if cacheEvents != nil && time.Since(cacheTime) < 15*time.Second {
-		ev := cacheEvents
-		cacheMu.RUnlock()
-		return ev, nil
-	}
-	cacheMu.RUnlock()
-
-	cacheMu.Lock()
-	if cacheEvents != nil && time.Since(cacheTime) < 15*time.Second {
-		ev := cacheEvents
-		cacheMu.Unlock()
-		return ev, nil
-	}
-	defer cacheMu.Unlock()
-
-	events, err := parser.GetParsedLog()
-	if err != nil {
-		return nil, err
-	}
-
-	cacheEvents = events
-	cacheTime = time.Now()
-	return events, nil
-}
 
 type Status struct {
 	WorkDate         string
@@ -60,10 +26,11 @@ func Calculate(startTime time.Time, now time.Time) Status {
 		wh.EndHour, wh.EndMin, 0, 0, time.Local)
 
 	lateDur := startTime.Sub(standardStart)
-	if lateDur < 0 {
-		lateDur = 0
+
+	lateMinutes := 0
+	if lateDur > 0 {
+		lateMinutes = int((lateDur + 59*time.Second) / time.Minute)
 	}
-	lateMinutes := int((lateDur + 59*time.Second) / time.Minute)
 
 	expectedLeave := standardEnd.Add(lateDur)
 
@@ -101,7 +68,7 @@ func MenuBarTitle(s Status) string {
 }
 
 func GetToday() (*Status, error) {
-	events, err := getEvents()
+	events, err := parser.GetParsedLog()
 	if err != nil {
 		return nil, fmt.Errorf("parse pmset: %w", err)
 	}
@@ -159,7 +126,7 @@ func GetByDate(date string, events map[string][]parser.Event, rangeBegin, rangeE
 }
 
 func GetWeek() ([]Status, error) {
-	events, err := getEvents()
+	events, err := parser.GetParsedLog()
 	if err != nil {
 		return nil, fmt.Errorf("parse pmset: %w", err)
 	}
@@ -187,15 +154,11 @@ func GetWeek() ([]Status, error) {
 }
 
 func ClearCache() {
-	cacheMu.Lock()
-	cacheTime = time.Time{}
-	cacheEvents = nil
-	cacheMu.Unlock()
 	parser.ClearCache()
 }
 
 func GetAll() ([]Status, error) {
-	events, err := getEvents()
+	events, err := parser.GetParsedLog()
 	if err != nil {
 		return nil, fmt.Errorf("parse pmset: %w", err)
 	}

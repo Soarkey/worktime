@@ -71,11 +71,6 @@ func tuneMemory() {
 	debug.SetMemoryLimit(6 * 1024 * 1024)
 }
 
-func releaseMemory() {
-	runtime.GC()
-	debug.FreeOSMemory()
-}
-
 func Run(version string) error {
 	tuneMemory()
 
@@ -88,20 +83,20 @@ func Run(version string) error {
 
 	go scheduleUpdates(mb)
 
-	releaseMemory()
-
 	mb.Run()
 	return nil
 }
 
 func scheduleUpdates(mb *menubar.MenuBar) {
-	var tick func()
-	tick = func() {
-		attendance.ClearCache()
+	if status, err := attendance.GetToday(); err == nil {
+		mb.Update(status)
+	}
+
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for range ticker.C {
 		if status, err := attendance.GetToday(); err == nil {
 			mb.Update(status)
 		}
-		time.AfterFunc(time.Minute, tick)
 	}
-	tick()
 }

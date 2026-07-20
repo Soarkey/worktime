@@ -53,17 +53,3 @@ func SaveOverride(date string, hour, min int) error {
 	}
 	return os.WriteFile(overridePath(), data, 0644)
 }
-
-func ClearOverride(date string) {
-	data, err := os.ReadFile(overridePath())
-	if err != nil {
-		return
-	}
-	var overrides OverrideData
-	if err := json.Unmarshal(data, &overrides); err != nil {
-		return
-	}
-	delete(overrides, date)
-	newData, _ := json.MarshalIndent(overrides, "", "  ")
-	os.WriteFile(overridePath(), newData, 0644)
-}

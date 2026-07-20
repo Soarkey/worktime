@@ -1,7 +1,9 @@
 package menubar
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -31,6 +33,7 @@ type MenuBar struct {
 	weekItems []*systray.MenuItem
 	weekSumm  *systray.MenuItem
 	mExport      *systray.MenuItem
+	mUpdate      *systray.MenuItem
 	mConfig      *systray.MenuItem
 	mConfigRange *systray.MenuItem
 	mAutoStart   *systray.MenuItem
@@ -107,6 +110,9 @@ func (m *MenuBar) onReady() {
 
 	systray.AddSeparator()
 
+	m.mUpdate = systray.AddMenuItem("检查更新...", "检查是否有新版本")
+	m.mUpdate.Click(func() { go m.checkUpdate() })
+
 	m.mQuit = systray.AddMenuItem("退出", "退出 worktime")
 	m.mQuit.Click(func() {
 		brewservice.Stop()
@@ -117,7 +123,6 @@ func (m *MenuBar) onReady() {
 }
 
 func (m *MenuBar) refresh() {
-	attendance.ClearCache()
 	if status, err := attendance.GetToday(); err == nil {
 		m.Update(status)
 	}
@@ -366,6 +371,9 @@ return item 1 of chosen`, listItems, current)
 }
 
 func loadChangelog() string {
+	if embeddedChangelog != "" {
+		return embeddedChangelog
+	}
 	exe, err := os.Executable()
 	if err != nil {
 		return ""
@@ -468,4 +476,126 @@ func (m *MenuBar) buildVersionSubmenu() {
 		item := parent.AddSubMenuItem(text, "")
 		item.Disable()
 	}
+}
+
+type githubRelease struct {
+	TagName string `json:"tag_name"`
+}
+
+func compareVersions(a, b string) int {
+	ap := strings.Split(strings.TrimPrefix(a, "v"), ".")
+	bp := strings.Split(strings.TrimPrefix(b, "v"), ".")
+	maxLen := len(ap)
+	if len(bp) > maxLen {
+		maxLen = len(bp)
+	}
+	for i := 0; i < maxLen; i++ {
+		var av, bv int
+		if i < len(ap) {
+			av, _ = strconv.Atoi(ap[i])
+		}
+		if i < len(bp) {
+			bv, _ = strconv.Atoi(bp[i])
+		}
+		if av < bv {
+			return -1
+		}
+		if av > bv {
+			return 1
+		}
+	}
+	return 0
+}
+
+func (m *MenuBar) checkUpdate() {
+	resp, err := http.Get("https://api.github.com/repos/Soarkey/worktime/releases/latest")
+	if err != nil {
+		m.showUpdateError("网络错误", "无法检查更新，请检查网络连接")
+		return
+	}
+	defer resp.Body.Close()
+
+	var rel githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&rel); err != nil {
+		m.showUpdateError("解析错误", "无法解析更新信息")
+		return
+	}
+
+	latestVer := strings.TrimPrefix(rel.TagName, "v")
+	currentVer := strings.TrimPrefix(m.version, "v")
+
+	if compareVersions(latestVer, currentVer) <= 0 {
+		m.showUpdateDialog("已是最新版本", fmt.Sprintf("当前版本 v%s 已是最新", currentVer), false)
+		return
+	}
+
+	content := loadChangelog()
+	var changelogSection string
+	if content != "" {
+		changelogSection = extractVersionSection(content, latestVer)
+	}
+	detail := fmt.Sprintf("发现新版本 v%s\n当前版本: v%s", latestVer, currentVer)
+	if changelogSection != "" {
+		detail += "\n\n更新内容:\n" + stripMarkdown(changelogSection)
+	}
+	if len(detail) > 500 {
+		detail = detail[:500] + "..."
+	}
+
+	confirmed := m.showUpdateDialog("发现新版本", detail, true)
+	if !confirmed {
+		return
+	}
+
+	// brew upgrade
+	brewPath, err := exec.LookPath("brew")
+	if err != nil {
+		m.showUpdateError("未找到 Homebrew", "请手动运行: brew upgrade worktime")
+		return
+	}
+
+	m.mUpdate.SetTitle("正在更新...")
+	m.mUpdate.Disable()
+
+	upgrade := exec.Command(brewPath, "upgrade", "worktime")
+	if out, err := upgrade.CombinedOutput(); err != nil {
+		m.mUpdate.Enable()
+		m.mUpdate.SetTitle("检查更新...")
+		m.showUpdateError("更新失败", string(out))
+		return
+	}
+
+	// trigger restart
+	exec.Command(brewPath, "services", "restart", "worktime").Start()
+
+	systray.Quit()
+	os.Exit(0)
+}
+
+func (m *MenuBar) showUpdateDialog(title, msg string, confirm bool) bool {
+	btnCancel := `"取消"`
+	btnOK := `"确定"`
+	if confirm {
+		btnCancel = `"取消"`
+		btnOK = `"更新"`
+	}
+	escaped := strings.NewReplacer(`"`, `\"`, `\n`, "\\n").Replace(msg)
+	script := fmt.Sprintf(
+		`display dialog "%s" with title "%s" buttons {%s, %s} default button %s`,
+		escaped, title, btnCancel, btnOK, btnOK,
+	)
+	out, err := exec.Command("osascript", "-e", script).Output()
+	if err != nil {
+		return false
+	}
+	return strings.Contains(string(out), "button returned:"+btnOK)
+}
+
+func (m *MenuBar) showUpdateError(title, msg string) {
+	escaped := strings.NewReplacer(`"`, `\"`).Replace(msg)
+	script := fmt.Sprintf(
+		`display dialog "%s" with title "%s" buttons {"确定"} default button "确定" with icon stop`,
+		escaped, title,
+	)
+	exec.Command("osascript", "-e", script).Run()
 }

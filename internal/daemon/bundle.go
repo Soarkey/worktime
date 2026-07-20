@@ -3,22 +3,46 @@ package daemon
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 )
+
+func brewBinPath() string {
+	brew, err := exec.LookPath("brew")
+	if err != nil {
+		return ""
+	}
+	out, err := exec.Command(brew, "--prefix", "worktime").Output()
+	if err != nil {
+		return ""
+	}
+	p := strings.TrimSpace(string(out))
+	if p == "" {
+		return ""
+	}
+	return filepath.Join(p, "bin", "worktime")
+}
 
 const bundleID = "com.soarkey.worktime"
 
 func copyChangelog(appDir string) {
-	src := filepath.Join(filepath.Dir(appDir), "CHANGELOG.md")
-	if _, err := os.Stat(src); os.IsNotExist(err) {
-		exe, _ := os.Executable()
-		src = filepath.Join(filepath.Dir(exe), "CHANGELOG.md")
-		if _, err := os.Stat(src); os.IsNotExist(err) {
-			return
+	exe, _ := os.Executable()
+	candidates := []string{
+		filepath.Join(filepath.Dir(appDir), "CHANGELOG.md"),
+		filepath.Join(filepath.Dir(exe), "CHANGELOG.md"),
+	}
+	if bp := brewBinPath(); bp != "" {
+		candidates = append(candidates, filepath.Join(filepath.Dir(bp), "..", "CHANGELOG.md"))
+	}
+	var data []byte
+	for _, src := range candidates {
+		if d, err := os.ReadFile(src); err == nil {
+			data = d
+			break
 		}
 	}
-	data, err := os.ReadFile(src)
-	if err != nil {
+	if data == nil {
 		return
 	}
 	resDir := filepath.Join(appDir, "Contents", "Resources")
@@ -41,6 +65,11 @@ func EnsureBundle() (string, error) {
 	binPath := filepath.Join(macosDir, filepath.Base(exe))
 	plistPath := filepath.Join(appDir, "Contents", "Info.plist")
 
+	target := exe
+	if bp := brewBinPath(); bp != "" {
+		target = bp
+	}
+
 	if err := os.MkdirAll(macosDir, 0755); err != nil {
 		return "", fmt.Errorf("创建 bundle 目录失败: %w", err)
 	}
@@ -48,7 +77,7 @@ func EnsureBundle() (string, error) {
 	if err := os.Remove(binPath); err != nil && !os.IsNotExist(err) {
 		return "", fmt.Errorf("清理旧 symlink 失败: %w", err)
 	}
-	if err := os.Symlink(exe, binPath); err != nil {
+	if err := os.Symlink(target, binPath); err != nil {
 		return "", fmt.Errorf("创建 symlink 失败: %w", err)
 	}
 

@@ -31,3 +31,6 @@ vendor/
 *.csv
 
 .codegraph/
+
+# Generated
+internal/menubar/changelog_gen.go

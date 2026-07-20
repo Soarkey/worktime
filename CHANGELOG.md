@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.2.0 (2026-07-20)
+
+### 新增
+- 菜单栏新增「检查更新」按钮，支持一键检测 GitHub 新版本并自动通过 Homebrew 升级重启
+- `CHANGELOG.md` 编译时嵌入二进制（`go:embed`），确保安装后始终能读取更新日志
+
+### 修复
+- 提前上班时下班时间未相应提前的问题：取消 `lateDur` 负值钳制，实现先到先走、后到后走
+
+### 优化
+- 移除 `internal/launchagent/` 死代码包
+- 移除 `ClearOverride`、`updateCheckBody` 等死字段/函数
+- 移除 attendance 层二级缓存（直接委托 parser 5s 缓存，减少 `sync.RWMutex` 双检锁开销）
+- 移除启动时强制 GC 调用（`releaseMemory`）
+- `scheduleUpdates` 改用 `time.Ticker` 替代递归 `AfterFunc`
+- 移除每 tick 冗余的 `ClearCache` 调用（parser TTL 自然过期）
+- `EnsureBundle` 优先使用 Homebrew 路径创建 symlink，避免升级后 bundle 失效
+
 ## v0.1.9 (2026-07-16)
 
 ### 优化
