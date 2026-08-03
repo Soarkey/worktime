@@ -20,7 +20,7 @@ func GetParsedLog() (map[string][]Event, error) {
 		return cached, nil
 	}
 
-	events, err := ParsePmsetLog()
+	events, err := mergedEvents()
 	if err != nil {
 		return nil, err
 	}
@@ -28,6 +28,19 @@ func GetParsedLog() (map[string][]Event, error) {
 	cached = events
 	cachedAt = time.Now()
 	return cached, nil
+}
+
+// mergedEvents 以本地持久化(全量历史)为基础,合并系统日志中的最新事件。
+func mergedEvents() (map[string][]Event, error) {
+	stored, err := LoadStore()
+	if err != nil {
+		stored = make(map[string][]Event)
+	}
+	live, err := ParsePmsetLog()
+	if err != nil {
+		return stored, nil
+	}
+	return mergeEvents(stored, live), nil
 }
 
 func ClearCache() {

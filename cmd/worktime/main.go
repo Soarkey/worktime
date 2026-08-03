@@ -213,14 +213,14 @@ func runConfig(args []string) {
 		changed = true
 	}
 	if v := *rangeBegin; v != "" || hasFlag(args, "range-begin") {
-		if h, m, err := parseHHMM(v); err == nil {
+		if h, m, err := config.ParseHHMM(v); err == nil {
 			wh.RangeBeginHour = h
 			wh.RangeBeginMin = m
 			changed = true
 		}
 	}
 	if v := *rangeEnd; v != "" || hasFlag(args, "range-end") {
-		if h, m, err := parseHHMM(v); err == nil {
+		if h, m, err := config.ParseHHMM(v); err == nil {
 			wh.RangeEndHour = h
 			wh.RangeEndMin = m
 			changed = true
@@ -240,22 +240,6 @@ func runConfig(args []string) {
 	rbH, rbM := wh.RangeBegin()/60, wh.RangeBegin()%60
 	reH, reM := wh.RangeEnd()/60, wh.RangeEnd()%60
 	fmt.Printf("上班统计时间段: %02d:%02d - %02d:%02d\n", rbH, rbM, reH, reM)
-}
-
-func parseHHMM(s string) (hour, min int, err error) {
-	parts := strings.Split(s, ":")
-	if len(parts) != 2 {
-		return 0, 0, fmt.Errorf("invalid format: %s", s)
-	}
-	hour, err = strconv.Atoi(parts[0])
-	if err != nil {
-		return 0, 0, err
-	}
-	min, err = strconv.Atoi(parts[1])
-	if err != nil {
-		return 0, 0, err
-	}
-	return hour, min, nil
 }
 
 func hasFlag(args []string, name string) bool {

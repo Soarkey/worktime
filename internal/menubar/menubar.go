@@ -11,27 +11,33 @@ import (
 	"strings"
 	"time"
 
-	"github.com/energye/systray"
 	"github.com/Soarkey/worktime/internal/attendance"
 	"github.com/Soarkey/worktime/internal/brewservice"
 	"github.com/Soarkey/worktime/internal/config"
 	"github.com/Soarkey/worktime/internal/parser"
+	"github.com/energye/systray"
 )
 
 type MenuBar struct {
 	version string
 
-	mStatus *systray.MenuItem
-	mToday     *systray.MenuItem
-	todayDate  *systray.MenuItem
-	todayStart *systray.MenuItem
-	todayEnd   *systray.MenuItem
-	todayLate  *systray.MenuItem
-	todayLeave *systray.MenuItem
-	todayModify *systray.MenuItem
-	mWeek     *systray.MenuItem
-	weekItems []*systray.MenuItem
-	weekSumm  *systray.MenuItem
+	mStatus      *systray.MenuItem
+	mToday       *systray.MenuItem
+	todayDate    *systray.MenuItem
+	todayStart   *systray.MenuItem
+	todayEnd     *systray.MenuItem
+	todayLate    *systray.MenuItem
+	todayLeave   *systray.MenuItem
+	todayModify  *systray.MenuItem
+	mWeek        *systray.MenuItem
+	weekItems    []*systray.MenuItem
+	weekSumm     *systray.MenuItem
+	mCalendar    *systray.MenuItem
+	calTitle     *systray.MenuItem
+	calPrev      *systray.MenuItem
+	calNext      *systray.MenuItem
+	calDays      []*systray.MenuItem
+	calMonth     time.Time
 	mExport      *systray.MenuItem
 	mUpdate      *systray.MenuItem
 	mConfig      *systray.MenuItem
@@ -83,6 +89,8 @@ func (m *MenuBar) onReady() {
 	}
 	m.weekSumm = m.mWeek.AddSubMenuItem("--", "")
 	m.weekSumm.Disable()
+
+	m.buildCalendarMenu()
 
 	m.todayModify = systray.AddMenuItem("修改今日上班时间...", "手动修正今日上班开始时间")
 	m.todayModify.Click(func() { go m.showModifyTodayDialog() })
@@ -209,30 +217,19 @@ func (m *MenuBar) refreshWeek() {
 func (m *MenuBar) showConfigDialog() {
 	wh := config.Load()
 	current := fmt.Sprintf("%02d:%02d-%02d:%02d", wh.StartHour, wh.StartMin, wh.EndHour, wh.EndMin)
-	script := fmt.Sprintf(`display dialog "请输入上下班时间 (格式 HH:MM-HH:MM)" default answer "%s" with title "worktime 设置"`, current)
-	out, err := exec.Command("osascript", "-e", script).Output()
-	if err != nil {
+	val, ok := dialogInput("worktime 设置", "请输入上下班时间 (格式 HH:MM-HH:MM)", current)
+	if !ok {
 		return
 	}
-	text := strings.TrimSpace(string(out))
-	idx := strings.Index(text, "text returned:")
-	if idx < 0 {
-		return
-	}
-	val := strings.TrimSpace(text[idx+len("text returned:"):])
 	parts := strings.Split(val, "-")
 	if len(parts) != 2 {
 		return
 	}
-	start := strings.Split(strings.TrimSpace(parts[0]), ":")
-	end := strings.Split(strings.TrimSpace(parts[1]), ":")
-	if len(start) != 2 || len(end) != 2 {
+	sh, sm, err1 := config.ParseHHMM(strings.TrimSpace(parts[0]))
+	eh, em, err2 := config.ParseHHMM(strings.TrimSpace(parts[1]))
+	if err1 != nil || err2 != nil {
 		return
 	}
-	sh, _ := strconv.Atoi(start[0])
-	sm, _ := strconv.Atoi(start[1])
-	eh, _ := strconv.Atoi(end[0])
-	em, _ := strconv.Atoi(end[1])
 	wh.StartHour = sh
 	wh.StartMin = sm
 	wh.EndHour = eh
@@ -248,30 +245,19 @@ func (m *MenuBar) showConfigRangeDialog() {
 	rbH, rbM := wh.RangeBegin()/60, wh.RangeBegin()%60
 	reH, reM := wh.RangeEnd()/60, wh.RangeEnd()%60
 	current := fmt.Sprintf("%02d:%02d-%02d:%02d", rbH, rbM, reH, reM)
-	script := fmt.Sprintf(`display dialog "请输入上班检测时间段 (格式 HH:MM-HH:MM)" default answer "%s" with title "worktime 设置"`, current)
-	out, err := exec.Command("osascript", "-e", script).Output()
-	if err != nil {
+	val, ok := dialogInput("worktime 设置", "请输入上班检测时间段 (格式 HH:MM-HH:MM)", current)
+	if !ok {
 		return
 	}
-	text := strings.TrimSpace(string(out))
-	idx := strings.Index(text, "text returned:")
-	if idx < 0 {
-		return
-	}
-	val := strings.TrimSpace(text[idx+len("text returned:"):])
 	parts := strings.Split(val, "-")
 	if len(parts) != 2 {
 		return
 	}
-	begin := strings.Split(strings.TrimSpace(parts[0]), ":")
-	end := strings.Split(strings.TrimSpace(parts[1]), ":")
-	if len(begin) != 2 || len(end) != 2 {
+	bh, bm, err1 := config.ParseHHMM(strings.TrimSpace(parts[0]))
+	eh, em, err2 := config.ParseHHMM(strings.TrimSpace(parts[1]))
+	if err1 != nil || err2 != nil {
 		return
 	}
-	bh, _ := strconv.Atoi(begin[0])
-	bm, _ := strconv.Atoi(begin[1])
-	eh, _ := strconv.Atoi(end[0])
-	em, _ := strconv.Atoi(end[1])
 	wh.RangeBeginHour = bh
 	wh.RangeBeginMin = bm
 	wh.RangeEndHour = eh
@@ -328,37 +314,23 @@ func (m *MenuBar) showModifyTodayDialog() {
 	}
 	opts = append(opts, "手动输入...")
 
-	listItems := strings.Join(opts, `", "`)
-	script := fmt.Sprintf(
-		`set chosen to choose from list {"%s"} with title "修改今日上班时间" with prompt "请选择今日的上班时间（根据亮屏记录）:" default items {"%s"}
-if chosen is false then return "cancel"
-return item 1 of chosen`, listItems, current)
-	out, err := exec.Command("osascript", "-e", script).Output()
-	if err != nil || string(out) == "cancel" {
+	val, ok := dialogList(opts, "修改今日上班时间", "请选择今日的上班时间（根据亮屏记录）:", current)
+	if !ok {
 		return
 	}
-	val := strings.TrimSpace(string(out))
 
 	if val == "手动输入..." {
-		script := fmt.Sprintf(`display dialog "请输入今日上班时间 (格式 HH:MM)" default answer "%s" with title "修改今日上班时间"`, current)
-		out, err := exec.Command("osascript", "-e", script).Output()
-		if err != nil {
+		v, ok := dialogInput("修改今日上班时间", "请输入今日上班时间 (格式 HH:MM)", current)
+		if !ok {
 			return
 		}
-		text := strings.TrimSpace(string(out))
-		idx := strings.Index(text, "text returned:")
-		if idx < 0 {
-			return
-		}
-		val = strings.TrimSpace(text[idx+len("text returned:"):])
+		val = v
 	}
 
-	parts := strings.Split(val, ":")
-	if len(parts) != 2 {
+	hh, mm, err := config.ParseHHMM(val)
+	if err != nil {
 		return
 	}
-	hh, _ := strconv.Atoi(parts[0])
-	mm, _ := strconv.Atoi(parts[1])
 
 	if err := config.SaveOverride(today, hh, mm); err != nil {
 		return
@@ -573,29 +545,13 @@ func (m *MenuBar) checkUpdate() {
 }
 
 func (m *MenuBar) showUpdateDialog(title, msg string, confirm bool) bool {
-	btnCancel := `"取消"`
-	btnOK := `"确定"`
+	okLabel := "确定"
 	if confirm {
-		btnCancel = `"取消"`
-		btnOK = `"更新"`
+		okLabel = "更新"
 	}
-	escaped := strings.NewReplacer(`"`, `\"`, `\n`, "\\n").Replace(msg)
-	script := fmt.Sprintf(
-		`display dialog "%s" with title "%s" buttons {%s, %s} default button %s`,
-		escaped, title, btnCancel, btnOK, btnOK,
-	)
-	out, err := exec.Command("osascript", "-e", script).Output()
-	if err != nil {
-		return false
-	}
-	return strings.Contains(string(out), "button returned:"+btnOK)
+	return dialogConfirm(title, msg, okLabel)
 }
 
 func (m *MenuBar) showUpdateError(title, msg string) {
-	escaped := strings.NewReplacer(`"`, `\"`).Replace(msg)
-	script := fmt.Sprintf(
-		`display dialog "%s" with title "%s" buttons {"确定"} default button "确定" with icon stop`,
-		escaped, title,
-	)
-	exec.Command("osascript", "-e", script).Run()
+	dialogAlert(title, msg)
 }

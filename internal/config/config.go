@@ -2,9 +2,29 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 )
+
+// ParseHHMM 解析 "HH:MM" 格式时间。
+func ParseHHMM(s string) (hour, min int, err error) {
+	parts := strings.Split(s, ":")
+	if len(parts) != 2 {
+		return 0, 0, fmt.Errorf("invalid format: %s", s)
+	}
+	hour, err = strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, err
+	}
+	min, err = strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, err
+	}
+	return hour, min, nil
+}
 
 type WorkHours struct {
 	StartHour int `json:"start_hour"`
@@ -16,6 +36,8 @@ type WorkHours struct {
 	RangeBeginMin  int `json:"range_begin_min,omitempty"`
 	RangeEndHour   int `json:"range_end_hour,omitempty"`
 	RangeEndMin    int `json:"range_end_min,omitempty"`
+
+	HolidayURL string `json:"holiday_url,omitempty"`
 }
 
 var defaultWorkHours = WorkHours{

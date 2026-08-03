@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.2.1 (2026-08-03)
+
+### 新增
+- 菜单栏新增「日历」子菜单：按月展示农历与节假日日历，含调休「班」/「休」标记与节日名，点击日期可查看该日考勤详情
+- 节假日数据从 ICS 接口自动拉取（默认 iCloud 中国大陆节假日，可在「设置节假日接口...」中自定义地址），本地缓存 24 小时
+- 考勤历史持久化：已识别的上下班事件同步写入 `~/.worktime/events.json`，读取时与 `pmset` 日志合并（本地记录优先），避免系统日志轮转导致历史丢失
+- 新增 `internal/menubar/dialog.go`：统一 osascript 对话框封装（`osaEscape` + dialogInput/List/Confirm/Alert）
+
+### 修复
+- 修复 Homebrew 安装版「当前版本」显示「未找到更新日志」：`changelog_gen.go` 原被 `.gitignore` 排除未提交，CI 直接 `go build` 不生成嵌入文件，发布二进制缺少更新日志内容；现纳入版本库管理
+
+### 优化
+- 清理死代码：`holiday.SetCachePath`、`eventDateFmt` 常量、gzip 手动解压分支（Go `net/http` 自动解压）
+- 提取 `config.ParseHHMM` 复用，移除 main.go 重复实现
+- `go.mod` 修正 `6tail/lunar-go` 为直接依赖（原误标为 indirect）
+
 ## v0.2.0 (2026-07-20)
 
 ### 新增

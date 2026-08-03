@@ -14,6 +14,7 @@ import (
 
 	"github.com/Soarkey/worktime/internal/attendance"
 	"github.com/Soarkey/worktime/internal/menubar"
+	"github.com/Soarkey/worktime/internal/parser"
 )
 
 func Start() error {
@@ -88,6 +89,7 @@ func Run(version string) error {
 }
 
 func scheduleUpdates(mb *menubar.MenuBar) {
+	parser.SyncStore()
 	if status, err := attendance.GetToday(); err == nil {
 		mb.Update(status)
 	}
@@ -95,6 +97,7 @@ func scheduleUpdates(mb *menubar.MenuBar) {
 	ticker := time.NewTicker(time.Minute)
 	defer ticker.Stop()
 	for range ticker.C {
+		parser.SyncStore()
 		if status, err := attendance.GetToday(); err == nil {
 			mb.Update(status)
 		}
